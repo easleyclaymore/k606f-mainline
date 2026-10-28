@@ -1,0 +1,2025 @@
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index e2aff0b3b..88362bddf 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -356,6 +356,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-sony-xperia-kumano-bahamut.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8150-sony-xperia-kumano-griffin.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-hdk.dtb
+ dtb-$(CONFIG_ARCH_QCOM) += sm8250-lenovo-q706f.dtb
++dtb-$(CONFIG_ARCH_QCOM) += sm8250-lenovo-k606f.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-mtp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-oneplus-instantnoodlep.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8250-oneplus-kebab.dtb
+@@ -462,3 +463,4 @@ x1p42100-lenovo-thinkbook-16-el2-dtbs	:= x1p42100-lenovo-thinkbook-16.dtb x1-el2
+ dtb-$(CONFIG_ARCH_QCOM)	+= x1p42100-lenovo-thinkbook-16.dtb x1p42100-lenovo-thinkbook-16-el2.dtb
+ x1p64100-microsoft-denali-el2-dtbs	:= x1p64100-microsoft-denali.dtb x1-el2.dtbo
+ dtb-$(CONFIG_ARCH_QCOM)	+= x1p64100-microsoft-denali.dtb x1p64100-microsoft-denali-el2.dtb
++DTC_FLAGS_sm8250-lenovo-k606f := -@
+diff --git a/arch/arm64/boot/dts/qcom/sm8250-lenovo-k606f.dts b/arch/arm64/boot/dts/qcom/sm8250-lenovo-k606f.dts
+new file mode 100644
+index 000000000..eea395abe
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8250-lenovo-k606f.dts
+@@ -0,0 +1,1690 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++* Copyright (c) 2022, The Linux Foundation. All rights reserved.
++*/
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/arm/qcom,ids.h>
++#include <dt-bindings/usb/pd.h>
++#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
++#include <dt-bindings/sound/qcom,q6afe.h>
++#include <dt-bindings/sound/qcom,q6asm.h>
++#include <dt-bindings/sound/cs35l45.h>
++#include <dt-bindings/leds/common.h>
++#include "sm8250.dtsi"
++#include "pm8150.dtsi"
++#include "pm8150b.dtsi"
++#include "pm8150l.dtsi"
++#include "pm8009.dtsi"
++
++/delete-node/ &adsp_mem;
++/delete-node/ &spss_mem;
++/delete-node/ &cdsp_secure_heap;
++
++/ {
++	model = "Lenovo Yoga Tab 13 (YT-K606F)";
++	compatible = "lenovo,k606f", "qcom,sm8250";
++	chassis-type = "tablet";
++
++	qcom,msm-id = <QCOM_ID_SM8250 0x20001>;
++	qcom,board-id = <0x3010008 0x0>;
++
++	aliases {
++		serial1 = &uart6;
++	};
++
++	battery: battery {
++		compatible = "simple-battery";
++		energy-full-design-microwatt-hours = <39400000>;
++		charge-full-design-microamp-hours = <10200000>;
++		voltage-min-design-microvolt = <3870000>;
++	};
++
++	gpio-hall-sensor {
++		compatible = "gpio-keys";
++		label = "Hall effect sensor";
++
++		pinctrl-0 = <&hall_sensor_default>;
++		pinctrl-names = "default";
++
++		event-hall-sensor {
++			gpios = <&tlmm 121 GPIO_ACTIVE_LOW>;
++			label = "Hall Effect Sensor";
++			linux,input-type = <EV_SW>;
++			linux,code = <SW_LID>;
++			linux,can-disable;
++			wakeup-source;
++		};
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		key-vol-up {
++			label = "Volume Up";
++			linux,code = <KEY_VOLUMEUP>;
++			gpios = <&pm8150_gpios 6 GPIO_ACTIVE_LOW>;
++			debounce-interval = <15>;
++		};
++	};
++
++	reserved-memory {
++
++		adsp_mem: memory@8a100000 {
++			reg = <0x0 0x8a100000 0x0 0x2500000>;
++			no-map;
++		};
++
++		spss_mem: memory@8C600000 {
++			reg = <0x0 0x8C600000 0x0 0x100000>;
++			no-map;
++		};
++
++		cdsp_secure_heap: memory@8C700000 {
++			reg = <0x0 0x8C700000 0x0 0x4600000>;
++			no-map;
++		};
++
++	};
++
++	vph_pwr: vph-pwr-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vph_pwr";
++		regulator-min-microvolt = <3700000>;
++		regulator-max-microvolt = <3700000>;
++	};
++
++	/* S6c is really ebi.lvl but it's there for supply map completeness sake. */
++	vreg_s6c_0p88: smpc6-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "vreg_s6c_0p88";
++
++		regulator-min-microvolt = <880000>;
++		regulator-max-microvolt = <880000>;
++		regulator-always-on;
++		vin-supply = <&vph_pwr>;
++	};
++
++	sd_1p8_supply: sd-1p8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "sd_1p8_supply";
++
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		// pinctrl-names = "default";
++		// pinctrl-0 = <&sd_pwr_en>;
++		gpio = <&tlmm 114 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-on-in-suspend;
++		regulator-always-on;
++	};
++
++	audio_1p8_supply: audio-1p8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "audio_1p8_supply";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		//cs35l45_1v8_enable
++		pinctrl-names = "default";
++		pinctrl-0 = <&cs35l45_1v8_enable>;
++		gpio = <&tlmm 49 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
++
++	avdd_1p3_supply: audio1-1p8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "audio1_1p8_supply";
++
++		regulator-min-microvolt = <1300000>;
++		regulator-max-microvolt = <1300000>;
++		gpio = <&tlmm 61 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
++	audio2_1p8_supply: audio2-1p8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "audio2_1p8_supply";
++
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		gpio = <&tlmm 29 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
++	audio3_1p8_supply: audio3-1p8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "audio3_1p8_supply";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		gpio = <&tlmm 127 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
++	audio4_1p8_supply: audio4-1p8-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "audio4_1p8_supply";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&spkr_1_sd_n_active>;
++		gpio = <&tlmm 26 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++		regulator-always-on;
++	};
++
++	usb_vbus_5p0: usb-vbus-5p0-regulator {
++		compatible = "regulator-fixed";
++		regulator-name = "usb_vbus_5p0";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		enable-active-high;
++		gpio = <&pm8150b_gpios 8 GPIO_ACTIVE_HIGH>;
++	};
++
++	qca6390-pmu {
++		compatible = "qcom,qca6390-pmu";
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&bt_en_state>, <&wlan_en_state>;
++
++		vddaon-supply = <&vreg_s6a_0p95>;
++		vddpmu-supply = <&vreg_s6a_0p95>;
++		vddrfa0p95-supply = <&vreg_s6a_0p95>;
++		vddrfa1p3-supply = <&vreg_s8c_1p35>;
++		vddrfa1p9-supply = <&vreg_s5a_1p9>;
++		vddpcie1p3-supply = <&vreg_s8c_1p35>;
++		vddpcie1p9-supply = <&vreg_s5a_1p9>;
++		vddio-supply = <&vreg_s4a_1p8>;
++
++		wlan-enable-gpios = <&tlmm 20 GPIO_ACTIVE_HIGH>;
++		bt-enable-gpios = <&tlmm 21 GPIO_ACTIVE_HIGH>;
++
++		regulators {
++			vreg_pmu_rfa_cmn: ldo0 {
++				regulator-name = "vreg_pmu_rfa_cmn";
++			};
++
++			vreg_pmu_aon_0p59: ldo1 {
++				regulator-name = "vreg_pmu_aon_0p59";
++			};
++
++			vreg_pmu_wlcx_0p8: ldo2 {
++				regulator-name = "vreg_pmu_wlcx_0p8";
++			};
++
++			vreg_pmu_wlmx_0p85: ldo3 {
++				regulator-name = "vreg_pmu_wlmx_0p85";
++			};
++
++			vreg_pmu_btcmx_0p85: ldo4 {
++				regulator-name = "vreg_pmu_btcmx_0p85";
++			};
++
++			vreg_pmu_rfa_0p8: ldo5 {
++				regulator-name = "vreg_pmu_rfa_0p8";
++			};
++
++			vreg_pmu_rfa_1p2: ldo6 {
++				regulator-name = "vreg_pmu_rfa_1p2";
++			};
++
++			vreg_pmu_rfa_1p7: ldo7 {
++				regulator-name = "vreg_pmu_rfa_1p7";
++			};
++
++			vreg_pmu_pcie_0p9: ldo8 {
++				regulator-name = "vreg_pmu_pcie_0p9";
++			};
++
++			vreg_pmu_pcie_1p8: ldo9 {
++				regulator-name = "vreg_pmu_pcie_1p8";
++			};
++		};
++	};
++};
++
++
++&adsp {
++	status = "okay";
++	firmware-name = "qcom/sm8250/q706f/adsp.mbn";
++};
++
++&apps_rsc {
++	regulators-0 {
++		compatible = "qcom,pm8009-rpmh-regulators";
++		qcom,pmic-id = "f";
++
++		vdd-s1-supply = <&vph_pwr>;
++		vdd-s2-supply = <&vph_pwr>;
++		vdd-l2-supply = <&vreg_s8c_1p35>;
++		vdd-l5-l6-supply = <&vreg_bob>;
++		vdd-l7-supply = <&vreg_s4a_1p8>;
++
++		vreg_s1f_1p2: smps1 {
++			regulator-name = "vreg_s1f_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_s2f_0p5: smps2 {
++			regulator-name = "vreg_s2f_0p5";
++			regulator-min-microvolt = <512000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regualtor-allow-set-load;
++			regulator-boot-on;
++			regulator-always-on;
++		};
++
++		vreg_l1f_1p1: ldo1 {
++			regulator-name = "vreg_l1f_1p1";
++			regulator-min-microvolt = <1104000>;
++			regulator-max-microvolt = <1104000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2f_1p2: ldo2 {
++			regulator-name = "vreg_l2f_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3f_1p1: ldo3 {
++			regulator-name = "vreg_l3f_1p1";
++			regulator-min-microvolt = <1056000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		// vreg_l4f_1p1: ldo4 {
++		// 	regulator-name = "vreg_l4f_1p1";
++		// 	regulator-min-microvolt = <1096000>;
++		// 	regulator-max-microvolt = <1304000>;
++		// 	regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		// };
++
++		vreg_l5f_2p8: ldo5 {
++			regulator-name = "vreg_l5f_2p8";
++			regulator-min-microvolt = <2800000>;
++			regulator-max-microvolt = <3000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l6f_2p8: ldo6 {
++			regulator-name = "vreg_l6f_2p8";
++			regulator-min-microvolt = <2800000>;
++			regulator-max-microvolt = <2800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l7f_1p8: ldo7 {
++			regulator-name = "vreg_l7f_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-1 {
++		compatible = "qcom,pm8150-rpmh-regulators";
++		qcom,pmic-id = "a";
++
++		vdd-s1-supply = <&vph_pwr>;
++		vdd-s2-supply = <&vph_pwr>;
++		vdd-s3-supply = <&vph_pwr>;
++		vdd-s4-supply = <&vph_pwr>;
++		vdd-s5-supply = <&vph_pwr>;
++		vdd-s6-supply = <&vph_pwr>;
++		vdd-s7-supply = <&vph_pwr>;
++		vdd-s8-supply = <&vph_pwr>;
++		vdd-s9-supply = <&vph_pwr>;
++		vdd-s10-supply = <&vph_pwr>;
++		vdd-l1-l8-l11-supply = <&vreg_s6c_0p88>;
++		vdd-l2-l10-supply = <&vreg_bob>;
++		vdd-l3-l4-l5-l18-supply = <&vreg_s6a_0p95>;
++		vdd-l6-l9-supply = <&vreg_s8c_1p35>;
++		vdd-l7-l12-l14-l15-supply = <&vreg_s5a_1p9>;
++		vdd-l13-l16-l17-supply = <&vreg_bob>;
++
++		/* (S1+S2+S3) - cx.lvl (ARC) */
++
++		vreg_s4a_1p8: smps4 {
++			regulator-name = "vreg_s4a_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-always-on;
++		};
++
++		vreg_s5a_1p9: smps5 {
++			regulator-name = "vreg_s5a_1p9";
++			regulator-min-microvolt = <1900000>;
++			regulator-max-microvolt = <2040000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++		};
++
++		vreg_s6a_0p95: smps6 {
++			regulator-name = "vreg_s6a_0p95";
++			regulator-min-microvolt = <920000>;
++			regulator-max-microvolt = <1128000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-always-on;
++		};
++
++		vreg_l2a_3p1: ldo2 {
++			regulator-name = "vreg_l2a_3p1";
++			regulator-min-microvolt = <3072000>;
++			regulator-max-microvolt = <3072000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3a_0p9: ldo3 {
++			regulator-name = "vreg_l3a_0p9";
++			regulator-min-microvolt = <928000>;
++			regulator-max-microvolt = <932000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* l4 = VDD_SSC_MX (lmx.lvl) */
++
++		vreg_l5a_0p88: ldo5 {
++			regulator-name = "vreg_l5a_0p88";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <880000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l6a_1p2: ldo6 {
++			regulator-name = "vreg_l6a_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++			RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l7a_1p7: ldo7 {
++			regulator-name = "vreg_l7a_1p7";
++			regulator-min-microvolt = <1704000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l9a_1p2: ldo9 {
++			regulator-name = "vreg_l9a_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l10a_1p8: ldo10 {
++			regulator-name = "vreg_l10a_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <2960000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* l11 = VDD_SSC_CX (lxc.lvl) */
++
++		vreg_l12a_1p8: ldo12 {
++			regulator-name = "vreg_l12a_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l13a_3p0: ldo13 {
++			regulator-name = "vreg_l13a_3p0";
++			regulator-min-microvolt = <3008000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-always-on;
++		};
++		// display vddio/vddi
++		vreg_l14a_1p8: ldo14 {
++			regulator-name = "vreg_l14a_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1880000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_LPM>;
++			regulator-boot-on;
++		};
++
++		vreg_l15a_1p8: ldo15 {
++			regulator-name = "vreg_l15a_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* Fingerprint reader power (goodix_fp) */
++		vreg_l16a_2p7: ldo16 {
++			regulator-name = "vreg_l16a_2p7";
++			regulator-min-microvolt = <3024000>;
++			regulator-max-microvolt = <3304000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l17a_3p0: ldo17 {
++			regulator-name = "vreg_l17a_3p0";
++			regulator-min-microvolt = <2504000>;
++			regulator-max-microvolt = <2950000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++			RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l18a_0p92: ldo18 {
++			regulator-name = "vreg_l18a_0p92";
++			regulator-min-microvolt = <800000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-2 {
++		compatible = "qcom,pm8150l-rpmh-regulators";
++		qcom,pmic-id = "c";
++
++		vdd-s1-supply = <&vph_pwr>;
++		vdd-s2-supply = <&vph_pwr>;
++		vdd-s3-supply = <&vph_pwr>;
++		vdd-s4-supply = <&vph_pwr>;
++		vdd-s5-supply = <&vph_pwr>;
++		vdd-s6-supply = <&vph_pwr>;
++		vdd-s7-supply = <&vph_pwr>;
++		vdd-s8-supply = <&vph_pwr>;
++		vdd-l1-l8-supply = <&vreg_s4a_1p8>;
++		vdd-l2-l3-supply = <&vreg_s8c_1p35>;
++		vdd-l4-l5-l6-supply = <&vreg_bob>;
++		vdd-l7-l11-supply = <&vreg_bob>;
++		vdd-l9-l10-supply = <&vreg_bob>;
++		vdd-bob-supply = <&vph_pwr>;
++
++		vreg_bob: bob {
++			regulator-name = "vreg_bob";
++			regulator-min-microvolt = <3008000>;
++			regulator-max-microvolt = <4000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		/*
++		* S1-S6 are ARCs:
++		* (S1+S2) - gfx.lvl,
++		* S3 - mx.lvl,
++		* (S4+S5) - mmcx.lvl,
++		* S6 - ebi.lvl
++		*/
++
++		vreg_s7c_0p35: smps7 {
++			regulator-name = "vreg_s7c_0p35";
++			regulator-min-microvolt = <348000>;
++			regulator-max-microvolt = <1000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_s8c_1p35: smps8 {
++			regulator-name = "vreg_s8c_1p35";
++			regulator-min-microvolt = <1350000>;
++			regulator-max-microvolt = <1400000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l1c_1p8: ldo1 {
++			regulator-name = "vreg_l1c_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2c_1p2: ldo2 {
++			regulator-name = "vreg_l2c_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1304000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3c_0p8: ldo3 {
++			regulator-name = "vreg_l3c_0p8";
++			regulator-min-microvolt = <800000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++		// cam
++		vreg_l4c_1p7: ldo4 {
++			regulator-name = "vreg_l4c_1p7";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <2800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l5c_1p8: ldo5 {
++			regulator-name = "vreg_l5c_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <2800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			// regulator-allow-set-load;
++		};
++
++		vreg_l6c_2p96: ldo6 {
++			regulator-name = "vreg_l6c_2p96";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <2960000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l7c_ts_3p0: ldo7 {
++			regulator-name = "vreg_l7c_ts_3p0";
++			regulator-min-microvolt = <2856000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l8c_1p8: ldo8 {
++			regulator-name = "vreg_l8c_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l9c_2p96: ldo9 {
++			regulator-name = "vreg_l9c_2p96";
++			regulator-min-microvolt = <2704000>;
++			regulator-max-microvolt = <2960000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			// regulator-allow-set-load;
++		};
++
++		vreg_l10c_3p0: ldo10 {
++			regulator-name = "vreg_l10c_3p0";
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3312000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++		// vdd/vci display
++		vreg_l11c_3p3: ldo11 {
++			regulator-name = "vreg_l11c_3p3";
++			regulator-min-microvolt = <3104000>;
++			regulator-max-microvolt = <3304000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			// regulator-boot-on;
++		};
++	};
++};
++
++&cdsp {
++	status = "okay";
++	firmware-name = "qcom/sm8250/q706f/cdsp.mbn";
++};
++
++&crypto {
++	status = "okay";
++};
++
++&gmu {
++	status = "okay";
++};
++
++&gpi_dma0 {
++	status = "okay";
++};
++
++&gpi_dma1 {
++	status = "okay";
++};
++
++&gpi_dma2 {
++	status = "okay";
++};
++
++&gpu {
++	status = "okay";
++
++	zap-shader {
++		memory-region = <&gpu_mem>;
++		firmware-name = "qcom/sm8250/q706f/a650_zap.mbn";
++	};
++};
++
++&i2c1 {
++	status = "okay";
++	clock-frequency = <1000000>;
++	/* Pen Charging NXP CTN730 Qi charger @ 28 */
++
++};
++
++&i2c3 {
++	status = "okay";
++	clock-frequency = <400000>;
++	/* hid-over-i2c Keyboard @ 61 */
++	keyboard@61 {
++        compatible = "hid-over-i2c";
++		vdd-supply = <&vreg_l10c_3p0>;
++        reg = <0x61>;
++        hid-descr-addr = <0x01>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
++		// interrupts-extended = <&tlmm 15 IRQ_TYPE_LEVEL_LOW>;
++		pinctrl-0 = <&keyboard_default>;
++		pinctrl-names = "default";
++		wakeup-source;
++    };
++};
++
++&i2c4 {
++	status = "okay";
++	clock-frequency = <400000>;
++
++	typec-mux@19 {
++		compatible = "onnn,nb7vpq904m";
++		reg = <0x19>;
++		status = "disabled";
++
++		vcc-supply = <&vreg_s4a_1p8>;
++
++		retimer-switch;
++		orientation-switch;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++
++				redriver_usb_con_ss: endpoint {
++					remote-endpoint = <&pm8150b_typec_mux_in>;
++				};
++			};
++
++			port@1 {
++				reg = <1>;
++
++				redriver_phy_con_ss: endpoint {
++					remote-endpoint = <&usb_1_qmpphy_out>;
++					data-lanes = <0 1 2 3>;
++				};
++			};
++		};
++	};
++	/* FSA4480 USB audio switch @ 43 */
++	typec-mux@43 {
++		compatible = "fcs,fsa4480";
++		reg = <0x43>;
++		status = "disabled";
++
++		vcc-supply = <&vreg_bob>;
++		mode-switch;
++		orientation-switch;
++
++		port {
++			fsa4480_sbu_mux: endpoint {
++				remote-endpoint = <&pm8150b_typec_sbu_out>;
++			};
++		};
++	};
++};
++
++&i2c5 {
++	status = "okay";
++	clock-frequency = <400000>;
++
++	// SPK1-cs35l45
++	// SPK1_fast_switch_music.txt SPK1_fast_switch_ring.txt SPK1_fast_switch_voice.txt
++	cs35l45_spk1: speaker-amp@30 {
++		compatible = "cirrus,cs35l45";
++		reg = <0x30>;
++		vdd-a-supply = <&vreg_s4a_1p8>;
++		vdd-batt-supply = <&audio4_1p8_supply>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <24 IRQ_TYPE_LEVEL_LOW>;
++		// interrupts-extended = <&tlmm 24 IRQ_TYPE_LEVEL_LOW>;
++		pinctrl-0 = <&cs35l45_1_irq_default &cs35l45_1v8_enable>;
++		pinctrl-names = "default";
++		reset-gpios = <&tlmm 127 GPIO_ACTIVE_HIGH>;
++		cirrus,asp-sdout-hiz-ctrl = <(CS35L45_ASP_TX_HIZ_UNUSED | CS35L45_ASP_TX_HIZ_DISABLED)>;
++		#sound-dai-cells = <1>;
++		sound-name-prefix = "SPK1"; //SPK1-cs35l45
++		cirrus,gpio-ctrl2 {
++			gpio-ctrl = <0x2>;
++		};
++	};
++
++	cs35l45_spk2: speaker-amp@31 {
++		compatible = "cirrus,cs35l45";
++		reg = <0x31>;
++		vdd-a-supply = <&vreg_s4a_1p8>;
++		vdd-batt-supply = <&audio4_1p8_supply>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <51 IRQ_TYPE_LEVEL_LOW>;
++		// interrupts-extended = <&tlmm 51 IRQ_TYPE_LEVEL_LOW>;
++		reset-gpios = <&tlmm 127 GPIO_ACTIVE_HIGH>;
++		pinctrl-0 = <&cs35l45_2_irq_default &cs35l45_1v8_enable>;
++		pinctrl-names = "default";
++		cirrus,asp-sdout-hiz-ctrl = <(CS35L45_ASP_TX_HIZ_UNUSED | CS35L45_ASP_TX_HIZ_DISABLED)>;
++		#sound-dai-cells = <1>;
++		sound-name-prefix = "SPK2";//SPK2-cs35l45
++		cirrus,gpio-ctrl2 {
++			gpio-ctrl = <0x2>;
++		};
++	};
++
++	cs35l41_spk3: speaker-amp@36 {
++		compatible = "cirrus,cs35l45";
++		reg = <0x36>;
++		vdd-a-supply = <&vreg_s4a_1p8>;
++		vdd-batt-supply = <&audio4_1p8_supply>;
++		pinctrl-0 = <&cs35l45_3_irq_default &cs35l45_1v8_enable>;
++		pinctrl-names = "default";
++		interrupts-extended = <&tlmm 100 IRQ_TYPE_LEVEL_LOW>;
++		reset-gpios = <&tlmm 127 GPIO_ACTIVE_HIGH>;
++		cirrus,asp-sdout-hiz-ctrl = <(CS35L45_ASP_TX_HIZ_UNUSED | CS35L45_ASP_TX_HIZ_DISABLED)>;
++		#sound-dai-cells = <1>;
++		sound-name-prefix = "SPK3";//SPK3-cs35l45
++		cirrus,gpio-ctrl2 {
++			gpio-ctrl = <0x2>;
++		};
++	};
++
++	cs35l41_spk4: speaker-amp@37 {
++		compatible = "cirrus,cs35l45";
++		reg = <0x37>;
++		vdd-a-supply = <&vreg_s4a_1p8>;
++		vdd-batt-supply = <&audio4_1p8_supply>;
++		pinctrl-0 = <&cs35l45_4_irq_default &cs35l45_1v8_enable>;
++		pinctrl-names = "default";
++		interrupts-extended = <&tlmm 93 IRQ_TYPE_LEVEL_LOW>;
++		reset-gpios = <&tlmm 127 GPIO_ACTIVE_HIGH>;
++		cirrus,asp-sdout-hiz-ctrl = <(CS35L45_ASP_TX_HIZ_UNUSED | CS35L45_ASP_TX_HIZ_DISABLED)>;
++		#sound-dai-cells = <1>;
++		sound-name-prefix = "SPK4";//SPK4-cs35l45
++		cirrus,gpio-ctrl2 {
++			gpio-ctrl = <0x2>;
++		};
++	};
++	/* Cirrus CS35L45 (Speaker 1) @ 30 */
++	/* Cirrus CS35L45 (Speaker 2) @ 31 */
++	/* Cirrus CS35L45 (Speaker 3) @ 36 */
++	/* Cirrus CS35L45 (Speaker 4) @ 37 */
++	/* Everest-semi ES7210 4-ch ADC @ 40 */
++	/* Synaptics AS33970  @ 41 */
++
++};
++
++&i2c9 {
++	status = "okay";
++	clock-frequency = <400000>;
++	/* hid-over-i2c ptp @ 60 */
++	touchpad@60 {
++		compatible = "hid-over-i2c";
++		vdd-supply = <&vreg_l10c_3p0>;
++		reg = <0x60>;
++		hid-descr-addr = <0x01>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
++		wakeup-source;
++	};
++
++};
++
++&i2c15 {
++	status = "okay";
++	clock-frequency = <400000>;
++
++	bq27541@55 {
++		compatible = "ti,bq27541";
++		reg = <0x55>;
++		monitored-battery = <&battery>;
++	};
++	/* Qcom SMB1396 @ 34 */
++	/* Qcom SMB1396 slave @ 35 */
++
++};
++
++&pm8150l_flash {
++	status = "okay";
++
++	led-0 {
++		function = LED_FUNCTION_FLASH;
++		color = <LED_COLOR_ID_WHITE>;
++		led-sources = <1>;
++		led-max-microamp = <200000>;
++		flash-max-microamp = <1000000>;
++		flash-max-timeout-us = <1280000>;
++	};
++};
++
++&mdss {
++	status = "okay";
++};
++
++/* K606F: 内屏不需要 DP；DP 控制器与 type-C 桥会让 msm 的 component 链一直 deferred */
++&mdss_dp {
++	status = "disabled";
++};
++
++&mdss_dp_out {
++	data-lanes = <0 1>;
++	remote-endpoint = <&usb_1_qmpphy_dp_in>;
++};
++
++&mdss_dsi0 {
++	vdda-supply = <&vreg_l9a_1p2>;
++	refgen-supply = <&refgen>;
++	qcom,dual-dsi-mode;
++	qcom,sync-dual-dsi;
++	qcom,master-dsi;
++	status = "okay";
++
++	display_panel: panel@0 {
++		reg = <0>;
++		vddio-supply = <&vreg_l14a_1p8>;
++		backlight = <&backlight>;
++		/* 面板复位：TLMM75（同 elish，原厂 sde_dsi_active pinctrl 里的 gpio75） */
++		reset-gpios = <&tlmm 75 GPIO_ACTIVE_LOW>;
++		/* 双 DSI split：两条链路各 1080x1350，合起来 2160x1350@60，无 DSC */
++		compatible = "lenovo,k606f-panel";
++		status = "okay";
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++				panel_in_0: endpoint {
++					remote-endpoint = <&mdss_dsi0_out>;
++				};
++			};
++
++			port@1 {
++				reg = <1>;
++				panel_in_1: endpoint {
++					remote-endpoint = <&mdss_dsi1_out>;
++				};
++			};
++		};
++	};
++
++};
++
++&mdss_dsi0_out {
++	data-lanes = <0 1 2 3>;
++	remote-endpoint = <&panel_in_0>;
++};
++
++&mdss_dsi0_phy {
++	vdds-supply = <&vreg_l5a_0p88>;
++	status = "okay";
++};
++
++&pcie0 {
++	status = "okay";
++};
++
++&pcie0_phy {
++	status = "okay";
++	vdda-phy-supply = <&vreg_l5a_0p88>;
++	vdda-pll-supply = <&vreg_l9a_1p2>;
++	/* Power on QCA639x chip, otherwise PCIe bus timeouts */
++};
++
++&pcieport0 {
++	wifi@0 {
++		compatible = "pci17cb,1101";
++		reg = <0x10000 0x0 0x0 0x0 0x0>;
++
++		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
++		vddaon-supply = <&vreg_pmu_aon_0p59>;
++		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
++		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
++		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
++		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
++		vddrfa1p7-supply = <&vreg_pmu_rfa_1p7>;
++		vddpcie0p9-supply = <&vreg_pmu_pcie_0p9>;
++		vddpcie1p8-supply = <&vreg_pmu_pcie_1p8>;
++	};
++};
++
++&pcie2 {
++	status = "okay";
++};
++
++&pcie2_phy {
++	vdda-phy-supply = <&vreg_l5a_0p88>;
++	vdda-pll-supply = <&vreg_l9a_1p2>;
++	status = "okay";
++};
++
++&pm8150b_adc {
++	channel@4f {
++		reg = <ADC5_AMUX_THM3_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		label = "conn_therm";
++	};
++};
++
++&pm8150b_adc_tm {
++	status = "okay";
++
++	conn-therm@0 {
++		reg = <0>;
++		io-channels = <&pm8150b_adc ADC5_AMUX_THM3_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++	};
++};
++
++&pm8150l_adc {
++	channel@4e {
++		reg = <ADC5_AMUX_THM2_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		label = "skin_msm_therm";
++	};
++
++	channel@4f {
++		reg = <ADC5_AMUX_THM3_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		label = "pm8150l_therm";
++	};
++};
++
++&pm8150l_adc_tm {
++	status = "okay";
++
++	skin-msm-therm@0 {
++		reg = <0>;
++		io-channels = <&pm8150l_adc ADC5_AMUX_THM2_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++	};
++
++	pm8150l-therm@1 {
++		reg = <1>;
++		io-channels = <&pm8150l_adc ADC5_AMUX_THM3_100K_PU>;
++		qcom,ratiometric;
++		qcom,hw-settle-time-us = <200>;
++	};
++};
++
++&pm8009_gpios {
++	gpio-line-names = "CAM_REAR_RST", /* GPIO_1 */
++	"NC",
++	"CAM_REAR2_RST",
++	"CAM_FRONT_RST";
++	cam0_rst_pins: rst-pins {
++		pins = "gpio1";
++		function = "gpio";
++
++		drive-strength = <16>;
++		bias-disable;
++	};
++};
++
++&pm8150_gpios {
++	gpio-line-names = "NC", /* GPIO_1 */
++	"NC",
++	"NC",
++	"NC",
++	"NC",
++	"VOL_UP_N",
++	"NC",
++	"NC",
++	"USB2_VBUS_BOOST",
++	"USB2_VBUS_DET "; /* GPIO_10 */
++	vol_up_n: vol-up-n-state {
++		pins = "gpio6";
++		function = "normal";
++		power-source = <1>;
++		input-enable;
++		bias-pull-up;
++	};
++};
++
++&pm8150b_gpios {
++	gpio-line-names = "NC", /* GPIO_1 */
++	"NC",
++	"NC",
++	"NC",
++	"POGO_FET_CTRL",
++	"SMB_STAT",
++	"NC",
++	"OTG_BOOST",
++	"NC",
++	"NC", /* GPIO_10 */
++	"NC",
++	"NC";
++	vbus_boost_en: vbus-boost-en {
++		pins = "gpio8";
++		function = "normal";
++		output-high;
++		power-source = <0x00>;
++	};
++	keyboard_default: pogo_fet_ctrl_default {
++		pins = "gpio5";
++		function = "normal";
++		output-low;
++		power-source = <0x00>;
++	};
++};
++
++&pm8150l_gpios {
++	gpio-line-names = "NC", /* GPIO_1 */
++	"PM3003A_EN",
++	"NC",
++	"NC",
++	"NC",
++	"AUX2_THERM",
++	"BB_HP_EN",
++	"CTN730_EN",
++	"PMX_RESET_N",
++	"NC", /* GPIO_10 */
++	"NC",
++	"PM3003A_MODE";
++};
++
++&pm8150b_typec {
++	status = "okay";
++
++	vdd-pdphy-supply = <&vreg_l2a_3p1>;
++	vdd-vbus-supply = <&usb_vbus_5p0>;
++
++	connector {
++		compatible = "usb-c-connector";
++
++		op-sink-microwatt = <10000000>;
++		power-role = "dual";
++		data-role = "dual";
++		self-powered;
++
++		source-pdos = <PDO_FIXED(5000, 3000,
++		PDO_FIXED_DUAL_ROLE |
++		PDO_FIXED_USB_COMM |
++		PDO_FIXED_DATA_SWAP)>;
++
++		sink-pdos = <PDO_FIXED(5000, 3000,
++		PDO_FIXED_DUAL_ROLE |
++		PDO_FIXED_USB_COMM |
++		PDO_FIXED_DATA_SWAP)>;
++
++		altmodes {
++			displayport {
++				svid = /bits/ 16 <0xff01>;
++				vdo = <0x00001c46>;
++			};
++		};
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++				pm8150b_hs_in: endpoint {
++					remote-endpoint = <&usb_1_dwc3_hs_out>;
++				};
++			};
++
++			port@1 {
++				reg = <1>;
++				pm8150b_typec_mux_in: endpoint {
++					remote-endpoint = <&redriver_usb_con_ss>;
++				};
++			};
++
++			port@2 {
++				reg = <2>;
++
++				pm8150b_typec_sbu_out: endpoint {
++					remote-endpoint = <&fsa4480_sbu_mux>;
++				};
++			};
++		};
++	};
++};
++
++&pm8150b_vbus {
++	regulator-min-microamp = <500000>;
++	regulator-max-microamp = <3000000>;
++	status = "okay";
++};
++
++&pon_pwrkey {
++	status = "okay";
++};
++
++&pon_resin {
++	status = "okay";
++
++	linux,code = <KEY_VOLUMEDOWN>;
++};
++
++&qup_spi13_cs_gpio {
++	drive-strength = <6>;
++	bias-disable;
++};
++
++&qup_spi13_data_clk {
++	drive-strength = <6>;
++	bias-disable;
++};
++
++&qupv3_id_0 {
++	status = "okay";
++};
++
++&qupv3_id_1 {
++	status = "okay";
++};
++
++&qupv3_id_2 {
++	status = "okay";
++};
++
++&sdhc_2 {
++	status = "okay";
++
++	cd-gpios = <&tlmm 77 GPIO_ACTIVE_HIGH>;
++	pinctrl-names = "default", "sleep";
++	pinctrl-0 = <&sdc2_default_state &sdc2_card_det_n>;
++	pinctrl-1 = <&sdc2_sleep_state &sdc2_card_det_n>;
++	vmmc-supply = <&vreg_l9c_2p96>;
++	vqmmc-supply = <&vreg_l6c_2p96>;
++	no-sdio;
++	no-mmc;
++};
++
++&q6afedai {
++
++	dai@24 {
++		reg = <PRIMARY_TDM_RX_0>;
++		qcom,tdm-sync-mode = <0>;
++		qcom,tdm-sync-src = <1>;
++		qcom,tdm-data-out = <0>;
++		qcom,tdm-invert-sync = <0>;
++		qcom,tdm-data-delay = <1>;
++		qcom,tdm-data-align = <0>;
++	};
++};
++
++&q6asmdai {
++	dai@0 {
++		reg = <0>;
++	};
++};
++
++
++&slpi {
++	status = "okay";
++	firmware-name = "qcom/sm8250/q706f/slpi.mbn";
++};
++
++&sound {
++	compatible = "qcom,sm8250-sndcard";
++	model = "Xiaoxin Pad Pro";
++	pinctrl-names = "default";
++	pinctrl-0 = <&pri_tdm_active>;
++
++	mm1-dai-link {
++		link-name = "MultiMedia1";
++
++		cpu {
++			sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA1>;
++		};
++	};
++
++	speaker-dai-link {
++		link-name = "Primary TDM Playback";
++
++		cpu {
++			sound-dai = <&q6afedai PRIMARY_TDM_RX_0>;
++		};
++
++		platform {
++			sound-dai = <&q6routing>;
++		};
++
++		codec {
++			sound-dai = <&cs35l45_spk1 0>, <&cs35l45_spk2 0>,
++						<&cs35l41_spk3 0>, <&cs35l41_spk4 0>;
++		};
++	};
++};
++
++&spi13 {
++	status = "okay";
++	pinctrl-names = "default";
++	pinctrl-0 = <&qup_spi13_data_clk>, <&qup_spi13_cs>;
++	cs-gpios = <&tlmm 39 GPIO_ACTIVE_LOW>;
++
++	touchscreen@0 {
++		compatible = "goodix,gt9916";// change to gt6975p
++		reg = <0>;
++
++		interrupt-parent = <&tlmm>;
++		interrupts = <31 IRQ_TYPE_LEVEL_LOW>;
++
++		reset-gpios = <&tlmm 30 GPIO_ACTIVE_LOW>;
++
++		avdd-supply = <&vreg_l7c_ts_3p0>;
++		// vddio-supply = <&ts_1p8_supply>;
++
++		spi-max-frequency = <1000000>;
++
++		touchscreen-size-x = <2560>;
++		touchscreen-size-y = <1600>;
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&ts_irq>, <&ts_reset>;
++	};
++};
++
++&tlmm {
++	gpio-reserved-ranges = <40 4>;
++
++	hall_sensor_default: hall-sensor-default-state {
++		pins = "gpio121";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	pri_tdm_active: pri-tdm-active-state {
++		sck-pins {
++			pins = "gpio138";
++			function = "mi2s0_sck";
++			drive-strength = <8>;
++			bias-disable;
++			output-high;
++		};
++
++		din-pins {
++			pins = "gpio139";
++			function = "mi2s0_data0";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		ws-pins {
++			pins = "gpio141";
++			function = "mi2s0_ws";
++			drive-strength = <8>;
++			bias-disable;
++			output-high;
++		};
++
++		dout-pins {
++			pins = "gpio140";
++			function = "mi2s0_data1";
++			drive-strength = <8>;
++			bias-disable;
++		};
++	};
++
++	tert_tdm_active: tert-tdm-active-state {
++		sck-pins {
++			pins = "gpio133";
++			function = "mi2s2_sck";
++			drive-strength = <8>;
++			bias-disable;
++			output-high;
++		};
++
++		din-pins {
++			pins = "gpio134";
++			function = "mi2s2_data0";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		ws-pins {
++			pins = "gpio135";
++			function = "mi2s2_ws";
++			drive-strength = <8>;
++			bias-disable;
++			output-high;
++		};
++
++		dout-pins {
++			pins = "gpio137";
++			function = "mi2s2_data1";
++			drive-strength = <8>;
++			bias-disable;
++		};
++	};
++
++	cam0_default: cam0-default-state {
++		mclk0-pins {
++			pins = "gpio94";
++			function = "cam_mclk";
++
++			drive-strength = <16>;
++			bias-disable;
++		};
++	};
++
++	spkr_1_sd_n_active: spkr-1-sd-n-active {
++		pins = "gpio26";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-disable;
++		output-high;
++	};
++
++	cs35l45_1_irq_default: cs35l45-1-irq-default {
++		pins = "gpio24";
++		function = "gpio";
++		drive-strength = <0x02>;
++		bias-pull-up;
++		input-enable;
++	};
++
++	cs35l45_2_irq_default: cs35l45-2-irq-default {
++		pins = "gpio51";
++		function = "gpio";
++		drive-strength = <0x02>;
++		bias-pull-up;
++	};
++
++	cs35l45_3_irq_default: cs35l45-3-irq-default {
++		pins = "gpio100";
++		function = "gpio";
++		drive-strength = <0x02>;
++		bias-pull-up;
++		input-enable;
++	};
++
++	cs35l45_4_irq_default: cs35l45-4-irq-default {
++		pins = "gpio93";
++		function = "gpio";
++		drive-strength = <0x02>;
++		bias-pull-up;
++		input-enable;
++	};
++
++	cs35l45_reset_default: cs35l45-reset-default {
++		pins = "gpio127";
++		drive-strength = <8>;
++		bias-disable;
++		output-high;
++	};
++
++	cs35l45_1v8_enable: cs35l45-1v8-enable {
++		pins = "gpio49";
++		drive-strength = <0x10>;
++		bias-disable;
++		output-high;
++	};
++
++	bt_en_state: bt-default-state {
++		pins = "gpio21";
++		function = "gpio";
++		drive-strength = <16>;
++		output-low;
++		bias-pull-up;
++	};
++
++	wlan_en_state: wlan-default-state {
++		pins = "gpio20";
++		function = "gpio";
++		drive-strength = <16>;
++		output-low;
++		bias-pull-up;
++	};
++
++	panel_reset_pins: panel-reset-state {
++		pins = "gpio75";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-disable;
++		output-high;
++	};
++
++	panel_vsync_pins: panel-vsync-state {
++		pins = "gpio66";
++		function = "mdp_vsync";
++		drive-strength = <2>;
++		bias-pull-down;
++	};
++
++	panel_vout_pins: panel-vout-state {
++		pins = "gpio24";
++		function = "gpio";
++		drive-strength = <16>;
++		output-high;
++	};
++
++	sdc2_default_state: sdc2-default-state {
++		clk-pins {
++			pins = "sdc2_clk";
++			drive-strength = <16>;
++			bias-disable;
++		};
++
++		cmd-pins {
++			pins = "sdc2_cmd";
++			drive-strength = <16>;
++			bias-pull-up;
++		};
++
++		data-pins {
++			pins = "sdc2_data";
++			drive-strength = <16>;
++			bias-pull-up;
++		};
++	};
++
++	ts_pwr_en: ts-pwr-en {
++		pins = "gpio130";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-disable;
++		output-high;
++	};
++
++	ts_irq: ts-irq-state {
++		pins = "gpio31";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-up;
++	};
++
++	ts_reset: ts-reset-state {
++		pins = "gpio30";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-up;
++	};
++
++	sd_pwr_en: sd-power {
++		pins = "gpio114";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-disable;
++		output-high;
++	};
++
++	sdc2_card_det_n: sd-card-det-n-state {
++		pins = "gpio77";
++		function = "gpio";
++		bias-pull-up;
++		drive-strength = <2>;
++	};
++
++	muic_i2c_default: muic-i2c-default-state {
++		pins = "gpio12", "gpio13";
++		function = "gpio";
++
++		drive-strength = <2>;
++		bias-disable;
++	};
++	wcd938x_reset_default: wcd938x-reset-default-state {
++		pins = "gpio32";
++		function = "gpio";
++		drive-strength = <16>;
++		output-high;
++	};
++
++	wcd938x_reset_sleep: wcd938x-reset-sleep-state {
++		pins = "gpio32";
++		function = "gpio";
++		drive-strength = <16>;
++		bias-disable;
++		output-low;
++	};
++};
++
++&uart6 {
++	status = "okay";
++
++	bluetooth {
++		compatible = "qcom,qca6390-bt";
++
++		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
++		vddaon-supply = <&vreg_pmu_aon_0p59>;
++		vddbtcmx-supply = <&vreg_pmu_btcmx_0p85>;
++		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
++		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
++		vddrfa1p7-supply = <&vreg_pmu_rfa_1p7>;
++	};
++};
++
++&ufs_mem_hc {
++	status = "okay";
++
++	vcc-supply = <&vreg_l17a_3p0>;
++	vcc-max-microamp = <800000>;
++	vccq-supply = <&vreg_l6a_1p2>;
++	vccq-max-microamp = <800000>;
++	vccq2-supply = <&vreg_s4a_1p8>;
++	vccq2-max-microamp = <800000>;
++};
++
++&ufs_mem_phy {
++	status = "okay";
++
++	vdda-phy-supply = <&vreg_l5a_0p88>;
++	vdda-pll-supply = <&vreg_l9a_1p2>;
++};
++
++&usb_1 {
++	status = "okay";
++};
++
++&usb_1_dwc3 {
++	dr_mode = "otg";
++	usb-role-switch;
++	maximum-speed = "super-speed-plus-gen2x2";
++};
++
++&usb_1_dwc3_hs_out {
++	remote-endpoint = <&pm8150b_hs_in>;
++};
++
++&usb_1_hsphy {
++	status = "okay";
++
++	vdda-pll-supply = <&vreg_l5a_0p88>;
++	vdda33-supply = <&vreg_l2a_3p1>;
++	vdda18-supply = <&vreg_l12a_1p8>;
++};
++
++&usb_1_qmpphy {
++	status = "okay";
++
++	vdda-phy-supply = <&vreg_l9a_1p2>;
++	vdda-pll-supply = <&vreg_l18a_0p92>;
++};
++
++&usb_1_qmpphy_dp_in {
++	remote-endpoint = <&mdss_dp_out>;
++};
++
++&usb_1_qmpphy_out {
++	remote-endpoint = <&redriver_phy_con_ss>;
++};
++
++&venus {
++	firmware-name = "qcom/sm8250/q706f/venus.mbn";
++	status = "okay";
++};
++
++/* ---- K606F: 借用 bootloader 已点亮的画面（simpledrm 路线） ---- */
++/ {
++	reserved-memory {
++		cont_splash_mem: memory@9c000000 {
++			reg = <0x0 0x9c000000 0x0 0x2400000>;
++			no-map;
++		};
++	};
++
++	framebuffer0: framebuffer@9c000000 {
++		compatible = "simple-framebuffer";
++		reg = <0x0 0x9c000000 0x0 (2160 * 1350 * 4)>;
++		width = <2160>;
++		height = <1350>;
++		stride = <(2160 * 4)>;
++		format = "a8r8g8b8";
++		status = "okay";
++	};
++};
++
++&{/chosen} {
++	bootargs = "console=ttyMSM0,115200n8 earlycon loglevel=8 ignore_loglevel";
++	stdout-path = "serial0:115200n8";
++};
++
++/* K606F: 第二条 DSI 链路（split 模式） */
++&mdss_dsi1 {
++	vdda-supply = <&vreg_l9a_1p2>;
++	refgen-supply = <&refgen>;
++	qcom,dual-dsi-mode;
++	qcom,sync-dual-dsi;
++	/* DSI1 是 slave，时钟必须用 DSI0 的 PHY PLL（否则 dsi1 会锁自己的 PLL，报 DSI PLL lock failed） */
++	assigned-clock-parents = <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
++				 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>;
++	status = "okay";
++};
++
++&mdss_dsi1_out {
++	data-lanes = <0 1 2 3>;
++	remote-endpoint = <&panel_in_1>;
++};
++
++&mdss_dsi1_phy {
++	vdds-supply = <&vreg_l5a_0p88>;
++	status = "okay";
++};
++
++/* 面板背光：PM8150L LPG PWM（原厂 bl_ctrl_pwm，channel 0，1ms 周期） */
++/ {
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		/* 原厂 pwm-lpg ch0(0xbc00) = 主线 pm8150l_lpg ch3 */
++		pwms = <&pm8150l_lpg 3 1000000>;
++		default-brightness-level = <77>;
++	};
++};
++
++&pm8150l_lpg {
++	status = "okay";
++};
+diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
+index 984a66085..7cc87cbae 100644
+--- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
++++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
+@@ -414,6 +414,8 @@ static void dsi_pll_disable_pll_bias(struct dsi_pll_7nm *pll)
+ 
+ 	data = readl(pll->phy->base + REG_DSI_7nm_PHY_CMN_CTRL_0);
+ 	data &= ~DSI_7nm_PHY_CMN_CTRL_0_PLL_SHUTDOWNB;
++	data &= ~(DSI_7nm_PHY_CMN_CTRL_0_DIGTOP_PWRDN_B |
++		 DSI_7nm_PHY_CMN_CTRL_0_PLL_SHUTDOWNB);
+ 	writel(0, pll->phy->pll_base + REG_DSI_7nm_PHY_PLL_SYSTEM_MUXES);
+ 	writel(data, pll->phy->base + REG_DSI_7nm_PHY_CMN_CTRL_0);
+ 	spin_unlock_irqrestore(&pll->pll_enable_lock, flags);
+@@ -430,7 +432,8 @@ static void dsi_pll_enable_pll_bias(struct dsi_pll_7nm *pll)
+ 	WARN_ON(pll->pll_enable_cnt == INT_MAX);
+ 
+ 	data = readl(pll->phy->base + REG_DSI_7nm_PHY_CMN_CTRL_0);
+-	data |= DSI_7nm_PHY_CMN_CTRL_0_PLL_SHUTDOWNB;
++	data |= DSI_7nm_PHY_CMN_CTRL_0_DIGTOP_PWRDN_B |
++		DSI_7nm_PHY_CMN_CTRL_0_PLL_SHUTDOWNB;
+ 	writel(data, pll->phy->base + REG_DSI_7nm_PHY_CMN_CTRL_0);
+ 
+ 	writel(0xc0, pll->phy->pll_base + REG_DSI_7nm_PHY_PLL_SYSTEM_MUXES);
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+index ed0514f32..2eacca609 100644
+--- a/drivers/gpu/drm/panel/Kconfig
++++ b/drivers/gpu/drm/panel/Kconfig
+@@ -457,6 +457,15 @@ config DRM_PANEL_LINCOLNTECH_LCD197
+ 	  24 bit RGB per pixel. It provides a MIPI DSI interface to
+ 	  the host.
+ 
++config DRM_PANEL_LENOVO_K606F
++	tristate "Lenovo Yoga Tab 13 (YT-K606F) panel"
++	depends on OF
++	depends on DRM_MIPI_DSI
++	help
++	  Say Y here if you want to enable support for the dual-DSI
++	  video-mode OLED panel used in the Lenovo Yoga Tab 13 (YT-K606F)
++	  tablet. The panel is 2160x1350 driven as two bonded DSI links.
++
+ config DRM_PANEL_LG_LB035Q02
+ 	tristate "LG LB035Q024573 RGB panel"
+ 	depends on GPIOLIB && OF && SPI
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+index 058bdd4ee..6177838ec 100644
+--- a/drivers/gpu/drm/panel/Makefile
++++ b/drivers/gpu/drm/panel/Makefile
+@@ -12,6 +12,7 @@ obj-$(CONFIG_DRM_PANEL_BOE_TV101WUM_NL6) += panel-boe-tv101wum-nl6.o
+ obj-$(CONFIG_DRM_PANEL_CHIPWEALTH_CH13726A) += panel-chipwealth-ch13726a.o
+ obj-$(CONFIG_DRM_PANEL_DSI_CM) += panel-dsi-cm.o
+ obj-$(CONFIG_DRM_PANEL_LVDS) += panel-lvds.o
++obj-$(CONFIG_DRM_PANEL_LENOVO_K606F) += panel-lenovo-k606f.o
+ obj-$(CONFIG_DRM_PANEL_SIMPLE) += panel-simple.o
+ obj-$(CONFIG_DRM_PANEL_EDP) += panel-edp.o
+ obj-$(CONFIG_DRM_PANEL_EBBG_FT8719) += panel-ebbg-ft8719.o
+diff --git a/drivers/gpu/drm/panel/panel-lenovo-k606f.c b/drivers/gpu/drm/panel/panel-lenovo-k606f.c
+new file mode 100644
+index 000000000..33fc41aa9
+--- /dev/null
++++ b/drivers/gpu/drm/panel/panel-lenovo-k606f.c
+@@ -0,0 +1,237 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Lenovo Yoga Tab 13 (YT-K606F) dual-DSI split video-mode panel driver.
++ *
++ * The panel is a 2160x1350 OLED driven over two DSI links in "split" mode
++ * (each link carries 1080x1350). It has NO DCS init sequence and NO DSC —
++ * it's a pure video-mode panel, so prepare/enable only need to handle the
++ * optional reset GPIO and power supply.
++ *
++ * The dual-DSI registration follows the same pattern as panel-novatek-nt36532:
++ * the secondary DSI device (for the second link) is looked up via the panel's
++ * port@1 endpoint and registered/attached explicitly. This is what triggers
++ * the second DSI host's component_add — which panel-simple does NOT do and is
++ * exactly why plain panel-simple cannot drive this panel.
++ */
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/of_graph.h>
++#include <linux/regulator/consumer.h>
++
++#include <drm/drm_mipi_dsi.h>
++#include <drm/drm_modes.h>
++#include <drm/drm_panel.h>
++#include <drm/drm_probe_helper.h>
++
++struct k606f_panel {
++	struct drm_panel panel;
++	struct mipi_dsi_device *dsi[2];
++	struct regulator *supply;
++	struct gpio_desc *reset_gpio;
++};
++
++static inline struct k606f_panel *to_k606f(struct drm_panel *panel)
++{
++	return container_of(panel, struct k606f_panel, panel);
++}
++
++/*
++ * 2160x1350@60. Timings taken verbatim from the vendor DT node
++ * qcom,mdss_dsi_dual_sim_video (per-link width 0x438=1080, height 0x546=1350):
++ *   hfp 16 / hbp 12 / hpw 16, vbp 8 / vfp 8 / vpw 1, 24 bpp, 60 fps.
++ * The DRM mode carries the FULL 2160-wide frame; msm splits it across the two
++ * bonded links internally.
++ */
++static const struct drm_display_mode k606f_mode = {
++	.clock = 180772,
++	.hdisplay = 2160,
++	.hsync_start = 2160 + 16,
++	.hsync_end = 2160 + 16 + 16,
++	.htotal = 2160 + 16 + 16 + 12,
++	.vdisplay = 1350,
++	.vsync_start = 1350 + 8,
++	.vsync_end = 1350 + 8 + 1,
++	.vtotal = 1350 + 8 + 1 + 8,
++	.flags = DRM_MODE_FLAG_NVSYNC | DRM_MODE_FLAG_NHSYNC,
++};
++
++static int k606f_get_modes(struct drm_panel *panel,
++			   struct drm_connector *connector)
++{
++	struct drm_display_mode *mode;
++
++	mode = drm_mode_duplicate(connector->dev, &k606f_mode);
++	if (!mode)
++		return -ENOMEM;
++
++	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
++	drm_mode_set_name(mode);
++	drm_mode_probed_add(connector, mode);
++
++	connector->display_info.width_mm = 280;
++	connector->display_info.height_mm = 175;
++	connector->display_info.bpc = 8;
++
++	return 1;
++}
++
++static int k606f_prepare(struct drm_panel *panel)
++{
++	struct k606f_panel *ctx = to_k606f(panel);
++	int ret;
++
++	if (ctx->supply) {
++		ret = regulator_enable(ctx->supply);
++		if (ret)
++			return ret;
++	}
++
++	if (ctx->reset_gpio) {
++		/* reset 低有效：deassert→assert→deassert（原厂 reset-sequence 高→低→高） */
++		gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++		msleep(10);
++		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++		msleep(10);
++		gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++		msleep(10);
++	}
++
++	return 0;
++}
++
++static int k606f_enable(struct drm_panel *panel)
++{
++	/* video-mode panel, no init sequence */
++	return 0;
++}
++
++static int k606f_disable(struct drm_panel *panel)
++{
++	return 0;
++}
++
++static int k606f_unprepare(struct drm_panel *panel)
++{
++	struct k606f_panel *ctx = to_k606f(panel);
++
++	if (ctx->reset_gpio)
++		gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++
++	if (ctx->supply)
++		regulator_disable(ctx->supply);
++
++	return 0;
++}
++
++static const struct drm_panel_funcs k606f_panel_funcs = {
++	.prepare = k606f_prepare,
++	.enable = k606f_enable,
++	.disable = k606f_disable,
++	.unprepare = k606f_unprepare,
++	.get_modes = k606f_get_modes,
++};
++
++static int k606f_probe(struct mipi_dsi_device *dsi)
++{
++	struct mipi_dsi_host *dsi_sec_host;
++	struct k606f_panel *ctx;
++	struct device *dev = &dsi->dev;
++	struct device_node *dsi_sec;
++	int ret;
++
++	ctx = devm_drm_panel_alloc(dev, struct k606f_panel, panel,
++				   &k606f_panel_funcs,
++				   DRM_MODE_CONNECTOR_DSI);
++	if (IS_ERR(ctx))
++		return PTR_ERR(ctx);
++
++	ctx->supply = devm_regulator_get_optional(dev, "vddio");
++	if (IS_ERR(ctx->supply)) {
++		ret = PTR_ERR(ctx->supply);
++		if (ret == -EPROBE_DEFER)
++			return ret;
++		ctx->supply = NULL;
++	}
++
++	ctx->reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
++	if (IS_ERR(ctx->reset_gpio))
++		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
++				     "failed to get reset-gpios\n");
++
++	/* Dual-DSI: register the secondary DSI device via panel's port@1. */
++	dsi_sec = of_graph_get_remote_node(dsi->dev.of_node, 1, -1);
++	if (dsi_sec) {
++		const struct mipi_dsi_device_info info = { "k606f", 0, dsi_sec };
++
++		dev_info(dev, "Using Dual-DSI with secondary node `%s`\n",
++			 dsi_sec->name);
++
++		dsi_sec_host = of_find_mipi_dsi_host_by_node(dsi_sec);
++		of_node_put(dsi_sec);
++		if (!dsi_sec_host)
++			return dev_err_probe(dev, -EPROBE_DEFER,
++					     "Cannot get secondary DSI host\n");
++
++		ctx->dsi[1] = devm_mipi_dsi_device_register_full(dev,
++								dsi_sec_host,
++								&info);
++		if (IS_ERR(ctx->dsi[1]))
++			return dev_err_probe(dev, PTR_ERR(ctx->dsi[1]),
++					     "Cannot register secondary DSI device\n");
++
++		mipi_dsi_set_drvdata(ctx->dsi[1], ctx);
++	}
++
++	ctx->dsi[0] = dsi;
++	mipi_dsi_set_drvdata(dsi, ctx);
++
++	ret = drm_panel_of_backlight(&ctx->panel);
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to get backlight\n");
++
++	drm_panel_add(&ctx->panel);
++
++	dsi->lanes = 4;
++	dsi->format = MIPI_DSI_FMT_RGB888;
++	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_NO_EOT_PACKET;
++	ret = devm_mipi_dsi_attach(dev, dsi);
++	if (ret) {
++		drm_panel_remove(&ctx->panel);
++		return dev_err_probe(dev, ret, "Failed to attach to DSI0\n");
++	}
++
++	if (ctx->dsi[1]) {
++		ctx->dsi[1]->lanes = 4;
++		ctx->dsi[1]->format = MIPI_DSI_FMT_RGB888;
++		ctx->dsi[1]->mode_flags = MIPI_DSI_MODE_VIDEO |
++					  MIPI_DSI_MODE_NO_EOT_PACKET;
++		ret = devm_mipi_dsi_attach(dev, ctx->dsi[1]);
++		if (ret) {
++			drm_panel_remove(&ctx->panel);
++			return dev_err_probe(dev, ret, "Failed to attach to DSI1\n");
++		}
++	}
++
++	return 0;
++}
++
++static const struct of_device_id k606f_of_match[] = {
++	{ .compatible = "lenovo,k606f-panel" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, k606f_of_match);
++
++static struct mipi_dsi_driver k606f_driver = {
++	.probe = k606f_probe,
++	.driver = {
++		.name = "panel-lenovo-k606f",
++		.of_match_table = k606f_of_match,
++	},
++};
++module_mipi_dsi_driver(k606f_driver);
++
++MODULE_AUTHOR("k606f mainline port");
++MODULE_DESCRIPTION("Lenovo Yoga Tab 13 (YT-K606F) dual-DSI panel driver");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/gpu/drm/panel/panel-simple.c b/drivers/gpu/drm/panel/panel-simple.c
+index c09bf3db5..4e38ab88f 100644
+--- a/drivers/gpu/drm/panel/panel-simple.c
++++ b/drivers/gpu/drm/panel/panel-simple.c
+@@ -6335,6 +6335,9 @@ static const struct drm_display_mode lg_lh500wx1_sd03_mode = {
+ 	.vtotal = 1280 + 8 + 4 + 12,
+ };
+ 
++
++
++
+ static const struct panel_desc_dsi lg_lh500wx1_sd03 = {
+ 	.desc = {
+ 		.modes = &lg_lh500wx1_sd03_mode,

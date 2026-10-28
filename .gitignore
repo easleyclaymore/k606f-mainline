@@ -1,0 +1,24 @@
+# 构建产物与本地缓存
+out/
+*.img
+*.cpio.gz
+*.ko
+*.dtb
+Image
+vmlinux
+
+# 工具链与第三方二进制
+toolchain/
+tools/vendor/busybox-aarch64-static
+
+# 私有数据（原始日志、备份、设备唯一数据）
+private/
+backups/
+
+# 内核源码（用 patch 代替，见 kernel/）
+sources/
+
+# 系统与编辑器
+.DS_Store
+*.swp
+*.swo
