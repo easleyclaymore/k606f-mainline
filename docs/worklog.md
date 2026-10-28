@@ -316,3 +316,24 @@
   并查 dsi_mgr_bridge_attach 里 next_bridge 是否为 NULL（导致 attach 回滚）。
 - 已确认 dsi_bind 正确设置 next_bridge（master dsi0，非 slave），时序无问题。
 
+
+### 迭代 21：网络问题彻底解决（21:41）
+- **根因修正**：之前记录的两个网络问题（A=host NM 抢 IP，B=device 侧 msm 加载后断网）其实是**同一个根因**——
+  host 侧 NetworkManager 的干扰。NM 在「连接（外部）」状态下仍会后台做 DHCP 探测等操作，导致网卡波动、ping 不通；
+  之前误判为「device 侧断网」。
+- **彻底修复**：写 `/etc/NetworkManager/conf.d/99-unmanaged-usb.conf`（精确 `interface-name:enp0s20f0u*`），
+  重启 NM 后 USB 网卡状态变为「未托管」（NM 完全不碰）。物理网卡 enp6s0 未受影响。
+- **验证**：msm 加载（insmod separate_gpu_kms=1）后，device 侧 usb0 持续 up、IP 172.16.42.1 在，
+  host 侧 90 秒内 18 次 ping 全通（退出码判断，之前的「超时」是 grep 中文输出误匹配）。
+- 附带：误操作（heredoc 与 sudo 密码 stdin 冲突）触发 pam_faillock 锁定 easley 10 分钟，已解锁。
+  教训：`echo PW | sudo -S` 不能再和 heredoc 混用；写文件用 `sudo sh -c 'printf ... > file'`。
+- 调试阻塞项已清除，可回归显示接管排查。
+
+
+### 今日收尾（21:56）
+- 平板已恢复 Android：`dtbo_a` 刷回备份（之前 `erase dtbo_a` 导致安卓缺 dtbo 无法启动），`adb devices` 可见。
+- 文档更新：`docs/status.md` 重写——修正显示接管为「未点亮（排查中）」（之前误标「真机通过」，违反「connector connected 不算点亮」纪律）。
+- 明天续点（唯一下一步）：抓 `dsi_mgr_bridge_pre_enable` 的 DBG，定位 DSI 控制器未 enable 的根因
+  （`master_dsi_link_id` 判断错 vs bridge 未 attach 进 encoder 链）。
+- 调试通道已稳：NM 持久化 unmanaged 后，msm 加载不再断网，可放心反复加载 msm 抓日志。
+
