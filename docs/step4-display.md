@@ -1,6 +1,6 @@
 # 第 4 步：显示接管（进行中）
 
-日期：2026-10-28　　状态：**准备中**（simpledrm 已出画面；原生 DPU+DSI 尚未接管）
+日期：2026-10-28 起　　状态：**排查中**（simpledrm 已出画面；msm card 已注册但 DSI 从未 enable，屏幕黑）
 
 ## 现状
 
@@ -117,6 +117,64 @@ platform ae96000.dsi: deferred probe pending: msm_dsi: Failed to get supply 'ref
 - 预期连带解决 connector 名字 `Unknown-1`（时钟配置正确后 msm 组件绑定完整）。
 - 另：原厂 PHY 是 `qcom,dsi-phy-v4.1`（下游），主线上对应 `qcom,dsi-phy-7nm`（sm8250.dtsi 已用），
   供电 `vdda-0p9`=0.88V 对应 `vreg_l5a_0p88`，正确。
+
+## 显示链路拓扑已确认：DSI → PSA8331 eDP 桥 → 玻璃（2026-10-30）
+
+> 结论来源：**本机运行时 FDT**（`~/amp/fdt/fdt.dtb`，用 `dtc -I dtb -O dts` 反编译，见 `docs/tech-debt.md` #15）
+> + 厂商开源包 `yt_k606f_s100101_210209_row`（`techpack/display/msm/dsi/dsi86-edp-mux.c`，已核实在包内）。
+> 本节推翻「面板直连 DSI 玻璃」的建模，但**不改变当前唯一下一步**。
+
+### 硬证据
+
+| 项 | 值 |
+|---|---|
+| 节点 | `/soc/i2c@984000/eDP-MUX@66`（`qupv3_se1_i2c`，100 kHz） |
+| compatible | `"eDP-MUX-8331"` |
+| 地址 | `reg = <0x66>` = 8 bit → **7 bit `0x33`**，与厂商驱动 `EDP_MUX_I2C_ADDR 0x33` 一致 |
+| 芯片 | PSA8331A（厂商驱动错误日志里的型号串） |
+| IRQ | `dsi86-irq` = TLMM gpio 110，`dsi86_edp2mip_irq` |
+| 供电 | `vdd-1p2` = `pm8150a_l3`、`vdd-1p5` = `pm8150_l7`、`vdd-1p8` = `pm8150_l15`、`vdd-3p3` = `pm8150a_l11` |
+| 状态回读 | `dsi86-pwr-status` = gpio 72（输入） |
+| 时钟 | `bb_clk2`（`clocks = <0x15 0x04>`） |
+
+GPIO 表（全部 TLMM，`<&tlmm n 0>`；已按正确 cell 解析，**旧 `fdt.dts` 里这些值全是乱码**）：
+
+| 功能 | gpio | 功能 | gpio |
+|---|---|---|---|
+| `mipi-to-edp-en` | 12 | `lcd-bob-en` | 71 |
+| `i2s-mux-en` | 14 | `865-lcd-power-on` | 101 |
+| `panel-gpio-mux-en` | 23 | `865-bl-en` | 102 |
+| `edp-aux-port-sel` | 40 | `865-bl-pwr-en` | 9 |
+| `edp-mux-pwr-en` | 42 | `io-mux-en` | 67 |
+| `boost-bypass-en` | 46 | `io-mux-en-select` | 108 |
+| `boost-vsel-en` | 48 | `i2s-mux-select` | 104 |
+| `boost-nbyp-en` | 49 | `dsi86-irq` | 110 |
+
+### 这条证据解释了什么
+
+1. **为什么活动面板是 `qcom,mdss_dsi_dual_sim_video`**（"Sim dual video"，无 DCS init 序列）：
+   真正干活的显示器件不是 DCS 面板，DSI 只按固定时序吐视频流，屏侧初始化与 eDP 链路训练由桥负责。
+   → 本文档上方那张面板参数表（每链路 1080×1350、无 init）**依然有效**，已用 dtc 重新反编译逐项复核一致。
+2. **为什么 FDT 的 `ports` 里看不到屏**：桥是纯 I²C + GPIO 器件，不走 OF-graph，从 DSI 的 endpoint 追不出来。
+
+### 但它不是当前黑屏的原因（重要）
+
+厂商代码里桥的初始化排在 **DSI 使能之后**（`dsi_drm.c` → `dsi_display_enable()` 之后才是 `dsi_display_dsi86_init()`）；
+主线对应 `dsi_mgr_bridge_pre_enable()` → `dsi_mgr_phy_enable()` + `dsi_ctrl_enable()`。
+`dsi_ctrl_enable` 是 msm 按 DT 时序算完就写的，**与系统里有没有桥无关**。所以桥再缺，`DSI_CTRL` 也会被写。
+我们的 `DSI_CTRL = 0x20040000`（ENABLE 未置位）说明根本没走到那一步 —— 仍是 bridge 链装配问题。
+
+### 落地顺序（钉死，不许跳）
+
+| 阶段 | 目标 | 判据 |
+|---|---|---|
+| **A（现在）** | 修 bridge 链，让 DSI 真正 enable | `DSI_CTRL` ENABLE 置位、`CLK_CTRL ≠ 0`、`dsi_mgr_bridge_pre_enable` 有 DBG |
+| B | DSI 通了但仍黑 → 引入 `psa8331` 桥（最简版：4 路电 + 上电 GPIO 序列 + `dsi86_edp_mux_init` 的 4 条写） | 出画面，或至少 I²C 有回包（"桥被访问过"） |
+| C | 仍黑 → 抄 `dsi86_init[]` 106 条寄存器 + `pre/post ULPS` 时序 | 出图 |
+
+B 阶段的模型改动：`dsi_mgr_bridge` → `psa8331_bridge`（`drm_bridge`）→ `drm_bridge_connector`；
+面板供电从主线 dts 的 `vddio` 挪进桥驱动，避免两边抢同一路电；背光拆成 `865-bl-en`（开关）+ PM8150L LPG PWM（调光）两级。
+**不要**整份照搬厂商驱动（`board_id` / `first_probe` / `switch_to_tv_mode` 是产品形态相关）。
 
 ## 两个已知风险
 

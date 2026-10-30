@@ -337,3 +337,26 @@
   （`master_dsi_link_id` 判断错 vs bridge 未 attach 进 encoder 链）。
 - 调试通道已稳：NM 持久化 unmanaged 后，msm 加载不再断网，可放心反复加载 msm 抓日志。
 
+
+### 迭代 22：显示链路拓扑查清 + 取证数据本身有 bug（10-30 13:50）
+
+本机未接平板，纯主机侧取证/复查，未改内核与 dts。
+
+- **发现取证数据是坏的（技术债 #15）**：`~/amp/fdt/fdt.dts` 由自写 `fdtdump.py` 生成，
+  凡 3 cell 的属性（GPIO/中断）和 `#size-cells` 这类都被渲染成 `"', '', '', 'e', …"` 乱码。
+  改用 `dtc -I dtb -O dts` 反编译 → `~/amp/fdt/fdt-clean.dts`（33852 行，原 29636 行）。
+  **此前所有从 `fdt.dts` 读 GPIO 编号的结论都要按新文件复核**；面板时序/分辨率是字节数组与单值，复核下来一致，不用改。
+- **eDP 桥从假说变成硬证据**：`/soc/i2c@984000/eDP-MUX@66`（`qupv3_se1_i2c`，100 kHz），
+  `compatible = "eDP-MUX-8331"`，`reg = 0x66`（= 7 bit `0x33`，与厂商 `EDP_MUX_I2C_ADDR` 对上），
+  irq gpio 110，`dsi86-pwr-status` gpio 72，四路电 `pm8150a_l3/pm8150_l7/pm8150_l15/pm8150a_l11`，
+  15 个 GPIO 全部齐（表见 `docs/step4-display.md`）。
+  → 拓扑 `DSI → PSA8331 → eDP 玻璃` 成立；顺带解释了一直别扭的 `qcom,mdss_dsi_dual_sim_video`（无 init 序列）。
+- **但它不解释黑屏**：厂商代码里桥初始化在 `dsi_display_enable()` 之后，`dsi_ctrl_enable` 与桥无关。
+  `DSI_CTRL = 0x20040000` 仍只能由 bridge 链装配问题解释。**下一步不变**（`drm.debug=0x1f` 抓 `dsi_mgr_bridge_pre_enable`），
+  A/B/C 顺序已钉死在 `docs/step4-display.md`。
+- **厂商包核验**：`dsi86-edp-mux.c`、`goodix_gt738x/goodix_ts_i2c.c`、`kona_defconfig` 均确认在包内（`tar -tzf` 直接列，未解压）。
+- **触控定性**：`gt738x@5d` on `qupv3_se13_i2c`（`i2c@a94000`），`goodix,gt738x`，reset 38 / report 25 / irq 39，
+  供电 `vtouch` = `pm8150_l16`。现有 dts 的「SPI13 + gt9916」确认为 q706f 残留（技术债 #16，**待第 4 步点亮后一并改**）。
+- **安装移植 skill**：`android-mainline-port`（MIT，纯 Markdown）装到 `~/.workbuddy/skills/`，
+  流程表与本项目分步一致，后续第 4/5 步按其 `experience/display.md`、`display`+`bootloader-and-boot` 对照推进。
+
