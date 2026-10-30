@@ -43,7 +43,6 @@
 
 ```
 ├── README.md            本文件
-├── AGENTS.md            项目规则：决策、授权边界、署名
 ├── docs/                构建、安装、回到 Android（对外文档）
 ├── config/              内核配置（k606f.config / k606f-probe.config）
 ├── kernel/              内核侧改动：板级 dts、面板驱动、合并 patch
