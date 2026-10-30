@@ -18,5 +18,6 @@
 | 14 | 并行启动多个 `build-kernel.sh` 会破坏 OUT 目录（`init/.main.o.d: Not a directory`） | `tools/build-kernel.sh` | 后台任务被 SIGTERM 后误重发 | flock 未挡住第二次构建，两个进程同时写 | 确保同一 OUT 只起一个构建进程；flock 前先检查 | 第 4 步 |
 | 15 | 取证用的 `~/amp/fdt/fdt.dts` 是自写 `fdtdump.py` 生成的，**非字符串属性解析错位**：3 cell 的 GPIO 属性、`#size-cells` 等被渲染成 `"', '', '', 'e', …"` 乱码 | `~/amp/fdt/fdt.dts`、`~/amp/fdt/fdtdump.py` | 当时图快，自写 dumper | **凡从该文件读 GPIO 编号 / 中断号 / cell 数的结论都不可信**；面板时序、分辨率为字节数组与单值，已用 dtc 复核无误，其余未复核 | 一律改用 `dtc -I dtb -O dts`（正确版 `~/amp/fdt/fdt-clean.dts`，2026-10-30）；`fdtdump.py` 作废，不要再生成新结论 | 第 2/4 步 |
 | 16 | 板级 dts 里触控与音频还是 q706f 骨架抄来的：`goodix,gt9916` 挂在 SPI13、4×`cirrus,cs35l45` | `kernel/sm8250-lenovo-k606f.dts` | 建 dts 时以 q706f 为骨架，这两项当时未取证 | 触控总线与型号都错（真身 GT738x on `i2c@a94000` addr `0x5d`）；音频功放型号错（厂商 defconfig 无 cs35l45）。不影响当前显示排查，但会在第 6 步集中爆 | 真值已由本机 FDT 给出；**第 4 步点亮通过后一次性改**，避免和显示排查混变量 | 第 4/6 步 |
+| 17 | `kernel/` 不是独立 git 仓：内核改动以 `kernel/k606f-kernel.patch` + 两个未跟踪源文件的形式放在**集成仓**里，没有上游历史 | `kernel/`（`public/k606f-mainline` 内） | 第 3/4 步改动只有「板级 dts + 面板驱动 + 一个 patch」，先求能构能跑 | 偏离 skill 的目录纪律（内核仓独立、保留上游历史）；patch 与源文件双份存在，容易不一致；上游更新时无法 rebase | 改动规模超过「一个 patch + 2 个文件」，或需要向上游提补丁时，拆成 `kernel/` 独立仓（基于 pmOS sm8250 tag，保留历史） | 第 3/4 步 |
 
 规则：加临时做法和登记在这里必须在同一次改动里完成。功能「跑通」不等于债还清。

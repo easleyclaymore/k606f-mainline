@@ -10,7 +10,8 @@
 |---|---|
 | 机型 | Lenovo YT-K606F = Yoga Tab 13 / YOGA Pad Pro，13" 2160×1350@60 |
 | SoC | SM8250-AC（骁龙 870，kona），8 GB RAM / 256 GB UFS 3.1 |
-| 出厂 | Android 12（SDK 31），vendor 内核 4.19.157-perf+ |
+| 出厂 | Android 12（SDK 31），内核 **4.19.136**（= 联想官方开源包 `yt_k606f_s100101_210209_row` 的版本） |
+| 设备当前 | **已 OTA 到最新系统**：Android 12（SDK 31），内核 **4.19.157-perf+**（不是出厂版本） |
 | 内核基线 | 主线 Linux 7.2（基于 [postmarketOS sm8250 树](https://gitlab.postmarketos.org/soc/qualcomm-sm8250/linux)，tag `sm8250-7.2.0`） |
 | 显示 | 双 DSI split，无 DSC，面板无初始化序列（video 模式） |
 
@@ -24,7 +25,8 @@
 
 关键里程碑：
 - 主线内核 7.2.0 通过 `fastboot boot` 首次启动，UFS 枚举 + USB NCM shell（`docs/step3-firstboot.md`）。
-- 显示：`CONFIG_DRM_MSM=m` 模块化加载，自写 `panel-lenovo-k606f` 双 DSI 面板驱动，DPU 显示 card 与 DSI connector 已建立（`docs/step4-display.md`）。
+- 显示：`CONFIG_DRM_MSM=m` 模块化加载，自写 `panel-lenovo-k606f` 双 DSI 面板驱动，DPU 显示 card 与 DSI connector 已建立；
+  **但屏幕仍黑**（`DSI_CTRL` 从未使能），卡在 bridge 链装配。链路拓扑已查明为 DSI → PSA8331 eDP 桥 → 玻璃（`docs/step4-display.md`）。
 
 ## 目录结构
 
@@ -51,12 +53,37 @@
 
 ```sh
 # 构建（模块版内核，显示驱动做成模块手动加载）
-TOOLCHAIN=gcc SRC=$PWD/sources/pmos-sm8250 OUT=$PWD/out/kernel-msmmod \
-  CFG=$PWD/sources/k606f-probe.config tools/build-kernel.sh Image modules dtbs
+# SRC 指向你自己的内核树（本仓不含内核源码），见 AGENTS.md 记录的内核基线
+TOOLCHAIN=gcc SRC=<内核树> OUT=$PWD/out/kernel-msmmod \
+  CFG=$PWD/config/k606f-probe.config tools/build-kernel.sh Image modules dtbs
 
 # 打启动镜像 + fastboot 临时启动（不写入分区）
 tools/bringup.sh
 ```
+
+> 注意：本仓只放配置、板级 dts、面板驱动与脚本，**不含内核源码树、构建产物、固件**。
+> 现阶段（第 4 步）也还没有「一条命令装到存储」的安装器 —— 那属于第 5 步。
+
+## 切回 Android
+
+目前 Linux 只用 `fastboot boot` 临时启动，**从不写分区**，所以正常情况下「回到 Android」= 直接重启。
+唯一例外是第 3 步的一次性操作：为了让自有 DTB 能叠上去，当时 `erase` 了 `dtbo_a`，之后必须刷回备份，
+否则 Android 会因缺 dtbo 起不来：
+
+```sh
+fastboot flash dtbo_a <备份>/dtbo_a.img   # 备份与 sha256 见 docs/partitions.md、docs/recovery-rehearsal.md
+```
+
+## 当前支持
+
+以 [`docs/status.md`](docs/status.md) 为准（本表只是摘要，状态词含义见该文件开头）。
+
+| 功能 | 状态 | 说明 |
+|---|---|---|
+| 启动（`fastboot boot`） | 真机通过 | 内核 7.2.0、UFS 枚举、USB NCM shell |
+| 显示 | 真机失败 | card 与 connector 已建立，屏幕黑；DSI 未使能 |
+| 触控 / Wi-Fi / 音频 / GPU | 待调研 | 触控已定性为 GT738x @ i2c13；GPU 卡已注册但未验证 |
+| 充电控制 / 相机 | 待调研（不做） | 见 `docs/abandoned.md` |
 
 ## 免责声明
 

@@ -9,7 +9,8 @@
 |---|---|
 | 机型 | Lenovo YT-K606F = **Yoga Tab 13** / 国行 YOGA Pad Pro，13" 2160×1350@60 |
 | SoC | SM8250-AC（骁龙 870，kona），8 GB RAM / 256 GB UFS 3.1 |
-| 出厂 | Android 12（SDK 31），vendor 内核 4.19.157-perf+ |
+| 出厂 | Android 12（SDK 31），内核 **4.19.136**（= 联想官方开源包 `yt_k606f_s100101_210209_row` 的版本，权威源） |
+| 设备当前 | **已 OTA 到最新系统**：Android 12（SDK 31），内核 **4.19.157-perf+**。⚠ 这个版本号**不是出厂版本**，别把它当出厂证据；厂商开源包对应的是 4.19.136 |
 | 连接 | `ssh p109`（地址/账号见私有工作区，公钥已配）；root：`su -c '…' </dev/null`（Magisk） |
 | Bootloader | **已解锁**（`verifiedbootstate=orange`、`flash.locked=0`），物理 A/B 槽 |
 
@@ -66,20 +67,28 @@
 ## 5. 目录
 
 ```
-~/Desktop/YT-K606F-mainline/
+~/Desktop/YT-K606F-mainline/            私有工作区（只放记录 + 内部脚本，不放代码副本）
 ├── AGENTS.md              本文件
-├── docs/                  状态表、工作日志、技术债、放弃方案、功能文档
+├── docs/                  状态表、工作日志、技术债、放弃方案、各功能文档
 ├── tools/                 env.sh（环境）、build-kernel.sh（构建）
 ├── sources/               参考源码（只读）：linux-7.2 上游、pmos-sm8250 配置
-├── toolchain/             无 root 解包的工具（ccache/bc/dtc）
+├── toolchain/             无 root 解包的工具（ccache/bc/dtc）；系统装好后可删
 ├── out/                   构建输出（含 ccache 与 kernel-ref-7.2）
 ├── private/               原始日志、备份、本机唯一数据（不进任何仓库）
-└── public/k606f-mainline/ 将来公开的集成仓（内核配置锁定、设备包、安装器）
+├── 权威数据/              厂商开源包、运行时 FDT、评估/核验报告（只读取证，不改）
+└── public/k606f-mainline/ 集成仓（独立 git，公开）：配置、dts/面板驱动、脚本、文档
 ```
+
+⚠ 与 skill 推荐结构的偏差（已登记技术债 #17）：`kernel/` 目前不是独立 git 仓，改动以 `kernel/k606f-kernel.patch`
+形式放在集成仓里；等改动规模超过「一个 patch + 2 个文件」时拆成独立内核仓并保留上游历史。
 
 ## 6. 代码规矩
 
 - 内核改动将来进 `kernel/`（独立 git，保留上游历史）；板级 dts **每个数值取本机原厂证据**，不从参考设备抄。
 - 临时的快速做法必须登记到 `docs/tech-debt.md`，与改动同一个提交。
 - 提交署名：AI 只加 `Co-Authored-By:`；不代签 `Signed-off-by`/`Tested-by`。
+- **推送、建仓、发版、改仓库可见性、重写历史，每一项都先问用户**（本地提交可以自己做）。
+- 取证类结论必须带版本信息：源码提交 / 镜像哈希 / 场景 / 证据文件路径。
+- **改完文档跑一次 `tools/check-docs.sh`**（查状态词合法、技术债表完整、AGENTS.md 必备条目、出厂版本没被 OTA 版本顶替）。
+- 上机前在工作日志写实验四句话：只改了什么 / 结果为 A 排除了什么 / 结果为 B 排除了什么 / 用哪个机器指标判定；上机后当天补结果与证据路径。
 - 不进公开仓：序列号、MAC、蓝牙地址、校准数据、固件原始镜像（未获授权时）、本机备份。

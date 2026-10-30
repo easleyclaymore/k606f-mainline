@@ -360,3 +360,26 @@
 - **安装移植 skill**：`android-mainline-port`（MIT，纯 Markdown）装到 `~/.workbuddy/skills/`，
   流程表与本项目分步一致，后续第 4/5 步按其 `experience/display.md`、`display`+`bootloader-and-boot` 对照推进。
 
+
+
+### 迭代 23：按 skill 做文档合规整改（10-30 14:00）
+
+用户指出一处事实错误并明确要求：**以 android-mainline-port skill 为准，不符合的必须改**。本轮只动文档，不动代码/dts。
+
+- **事实修正**：`4.19.157-perf+` 不是出厂版本，是**设备 OTA 到最新系统后**的版本。
+  出厂应为 **4.19.136**——已用 `tar -xzOf kernel_msm-4.19.tar.gz kernel/msm-4.19/Makefile` 直接读到
+  `VERSION=4 PATCHLEVEL=19 SUBLEVEL=136`，与联想官方开源包一致。`AGENTS.md`、`README.md` 改为两行：
+  「出厂 4.19.136」+「设备当前 4.19.157-perf+（已 OTA，不是出厂）」。
+- **状态词合规**（`verification.md` 只允许 6 个词）：显示点亮 `未点亮（排查中）` → **`真机失败`**；
+  充电/相机 `放弃` → `待调研`（真实归属是 `docs/abandoned.md`）；开源 `完成` → `离线通过`；分区备份去掉「（部分）」限定词。
+- **补 skill 要求的缺失文档**：新增 `docs/abandoned.md`（放弃方案记录，5 条：充电控制、相机、用厂商包补 dts、
+  initramfs 抢跑初始化 eDP 桥、直接复用下游显示框架），每条含证据/成立条件/重新考虑所需新证据。
+- **AGENTS.md 补两条硬规矩**：① 推送/建仓/发版/改可见性/重写历史**每一项先问用户**（skill §5）；
+  ② 上机前写实验四句话。目录章节补 `权威数据/`，并标注与 skill 推荐结构的偏差（技术债 #17）。
+- **技术债 #17**：`kernel/` 不是独立 git 仓，改动以 patch + 两个源文件形式放在集成仓里；等规模超过就拆仓。
+- **`docs/step4-progress.md` 加注记**：那份「✅ 真机达成」的旧结论把 `connector connected` 当点亮，
+  已被推翻；按「不改旧记录、只追加」的规矩只加标注，指向 `status.md`。
+- **新增 `tools/check-docs.sh`**：把纪律变成可执行检查（状态词合法、技术债表 7 列且不被文字截断、
+  AGENTS.md 必备条目、出厂版本没被 OTA 版本顶替、必需文档齐备）。已做正/负向测试：
+  故意塞「未点亮（排查中）」「放弃」和一行插进表格中间的文字，脚本都能报出来。
+- 结论未变：显示仍卡在 A 阶段（DSI enable），下一步仍是抓 `dsi_mgr_bridge_pre_enable` 的 DBG。
