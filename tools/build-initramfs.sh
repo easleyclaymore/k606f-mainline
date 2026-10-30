@@ -103,6 +103,23 @@ if [ -d /lib/modules ]; then
   ) &
 fi
 
+# --- 自动上机模式：cmdline 带 k606f.automsm=1 时自动 insmod msm 并把 dmesg 挂到 httpd ---
+# 目的：把「telnet 进去手敲 insmod」变成可复现的一步操作，宿主侧只靠 HTTP 取证据。
+if grep -q "k606f.automsm=1" /proc/cmdline 2>/dev/null; then
+  (
+    dmesg > /tmp/dmesg.txt 2>/dev/null
+    sleep 3
+    : > /tmp/msm-load.txt
+    $BB insmod /lib/modules/msm.ko >> /tmp/msm-load.txt 2>&1
+    echo "insmod rc=$?" >> /tmp/msm-load.txt
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+      sleep 3
+      dmesg > /tmp/dmesg.txt 2>/dev/null
+    done
+    echo "automsm done" >> /tmp/msm-load.txt
+  ) &
+fi
+
 echo
 echo ">>> 就绪：宿主机配 172.16.42.2/24，然后 telnet 172.16.42.1"
 echo ">>> 手动加载 msm： insmod /lib/modules/msm.ko （观察 USB 是否掉线）"

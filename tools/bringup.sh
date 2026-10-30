@@ -49,7 +49,7 @@ mkbootimg \
   --dtb "$DTB" \
   --header_version 2 --pagesize 4096 --base 0x0 \
   --os_version 12.0.0 --os_patch_level 2023-02 \
-  --cmdline "console=ttyMSM0,115200n8 earlycon loglevel=8 ignore_loglevel panic=10 clk_ignore_unused pd_ignore_unused" \
+  --cmdline "console=ttyMSM0,115200n8 earlycon loglevel=8 ignore_loglevel panic=10 clk_ignore_unused pd_ignore_unused ${EXTRA_CMDLINE:-}" \
   --output "$W/out/boot-probe.img"
 unpack_bootimg --boot_img "$W/out/boot-probe.img" --out /tmp/bringup-check >/dev/null 2>&1 || true
 KADDR=$(unpack_bootimg --boot_img "$W/out/boot-probe.img" --out /tmp/bringup-check 2>/dev/null | awk -F': ' '/kernel load address/{print $2}')
