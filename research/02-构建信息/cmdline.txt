@@ -1,0 +1,36 @@
+# 启动参数（cmdline）—— 原样记录
+
+## 1) 我们自己传给内核的 cmdline（tools/bringup.sh 默认）
+
+```
+console=ttyMSM0,115200n8 earlycon loglevel=8 ignore_loglevel panic=10 clk_ignore_unused pd_ignore_unused k606f.blmode=3
+```
+
+说明：
+- `console=ttyMSM0,115200n8` + `earlycon`：串口控制台 + 早期控制台。
+- `loglevel=8 ignore_loglevel`：把所有级别都打到控制台（调试期必须）。
+- `panic=10`：panic 后 10 秒自动重启（探针靠这个回 fastboot）。
+- `clk_ignore_unused pd_ignore_unused`：忽略未使用的时钟/电源域（探针期临时，技术债 #7）。
+- `k606f.blmode=3`：自定义探针模式（initramfs 里读取，跑分步上电 + insmod + 取证的脚本）。
+
+## 2) 设备实际完整 cmdline（从 B60 取证日志原样抄录，含 bootloader 注入项）
+
+```
+console=ttyMSM0,115200n8 earlycon loglevel=8 ignore_loglevel panic=10 clk_ignore_unused pd_ignore_unused \
+k606f.blmode=3 \
+androidboot.verifiedbootstate=orange androidboot.keymaster=1 \
+androidboot.vbmeta.device=PARTUUID=e5bad5a8-8de6-4b5a-b382-c9a38477c2bc \
+androidboot.vbmeta.avb_version=1.0 androidboot.vbmeta.device_state=unlocked \
+androidboot.vbmeta.hash_alg=sha256 androidboot.vbmeta.size=7936 \
+androidboot.vbmeta.digest=7fa43130a27f7ec539110cbe8a666178f93d7206007f5b6d4c28c0e6fc82dc74 \
+androidboot.vbmeta.invalidate_on_error=yes androidboot.veritymode=enforcing \
+androidboot.bootdevice=1d84000.ufshc androidboot.fstab_suffix=default \
+androidboot.boot_devices=soc/1d84000.ufshc \
+androidboot.serialno=<SERIAL> \
+androidboot.countrycode=CNXX androidboot.name=LenovoYT-K606F_PRC \
+androidboot.fingerprint=Lenovo/LenovoYT-K606F_PRC/K606F:12/SKQ1.220213.001/14.0.494_230409:user/release-keys \
+androidboot.fused=1 androidboot.baseband=apq
+```
+
+> `androidboot.*` 这一段是 bootloader（ABL）自动注入的，我们不需要写，也无法去掉。
+> `androidboot.serialno` 是本机唯一信息，**不要外传**。
