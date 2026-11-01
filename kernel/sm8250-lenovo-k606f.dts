@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/arm/qcom,ids.h>
 #include <dt-bindings/usb/pd.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
@@ -127,11 +128,11 @@
 		regulator-name = "audio_1p8_supply";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
-		//cs35l45_1v8_enable
-		pinctrl-names = "default";
-		pinctrl-0 = <&cs35l45_1v8_enable>;
-		gpio = <&tlmm 49 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
+		/*
+		 * 原为 pinctrl-0 = <&cs35l45_1v8_enable> + gpio = <&tlmm 49>（从别的板子抄来）。
+		 * 本机 gpio49 是 eDP 桥的 boost-nbyp-en（原厂 FDT 明确），这根线归桥。
+		 * 本机原厂 FDT 也没有 cs35l45 节点，音频阶段重建时一并处理（技术债 #23）。
+		 */
 		regulator-boot-on;
 		regulator-always-on;
 	};
@@ -418,9 +419,11 @@
 			RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l7a_1p7: ldo7 {
-			regulator-name = "vreg_l7a_1p7";
-			regulator-min-microvolt = <1704000>;
+		/* 桥的 vdd-1p5：原厂内核实际把它设成 1.5 V（pm8150_l7，见 dumpsys/regulator 实测），
+		 * 原来抄来的上下限 1.704–1.8 V 会把桥的 1.5V 轨喂成 1.7V+，驱动里也会设不进去。 */
+		vreg_l7a_1p5: ldo7 {
+			regulator-name = "vreg_l7a_1p5";
+			regulator-min-microvolt = <1500000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
@@ -664,9 +667,66 @@
 
 &i2c1 {
 	status = "okay";
-	clock-frequency = <1000000>;
+	clock-frequency = <100000>;	/* 桥（原厂 qcom,clk-freq-out = 100 kHz）与笔充电器共用这条总线 */
 	/* Pen Charging NXP CTN730 Qi charger @ 28 */
 
+	edp_mux: bridge@33 {
+		compatible = "lenovo,psa8331-edp-mux";
+		reg = <0x33>;		/* 原厂 DT 写 0x66，是 8 bit 形式 */
+		status = "okay";
+
+		vdd-1p2-supply = <&vreg_l3c_0p8>;
+		vdd-1p5-supply = <&vreg_l7a_1p5>;
+		vdd-1p8-supply = <&vreg_l15a_1p8>;
+		vdd-3p3-supply = <&vreg_l11c_3p3>;
+
+		/* 原厂 FDT：clocks = <rpmhclk 4>，clock-names = "bb_clk2"。
+		 * rpmh.h 里编号 4 = RPMH_LN_BB_CLK3（clk 名 "lnbclka3"）。
+		 * 之前抄成 RPMH_LN_BB_CLK2（编号 2，"lnbclka2"）是错的 ——
+		 * 桥的 DP PLL 靠这个参考时钟锁相，给错时钟就锁不上（B29 定位，0x0A 卡 0x02）。 */
+		clocks = <&rpmhcc RPMH_LN_BB_CLK3>;
+		clock-names = "refclk";
+
+		lcd-bob-en-gpios = <&tlmm 71 GPIO_ACTIVE_HIGH>;
+		lcd-3v3-en-gpios = <&tlmm 101 GPIO_ACTIVE_HIGH>;
+		edp-mux-pwr-en-gpios = <&tlmm 42 GPIO_ACTIVE_HIGH>;
+		mipi-to-edp-en-gpios = <&tlmm 12 GPIO_ACTIVE_HIGH>;
+		boost-bypass-en-gpios = <&tlmm 46 GPIO_ACTIVE_HIGH>;
+		boost-vsel-en-gpios = <&tlmm 48 GPIO_ACTIVE_HIGH>;
+		boost-nbyp-en-gpios = <&tlmm 49 GPIO_ACTIVE_HIGH>;
+		bl-pwr-en-gpios = <&tlmm 9 GPIO_ACTIVE_HIGH>;
+		bl-en-gpios = <&tlmm 102 GPIO_ACTIVE_HIGH>;
+
+		/* 厂商代码里这几根是低电平有效 */
+		panel-gpio-mux-en-gpios = <&tlmm 23 GPIO_ACTIVE_LOW>;
+		io-mux-en-gpios = <&tlmm 67 GPIO_ACTIVE_LOW>;
+		i2s-mux-en-gpios = <&tlmm 14 GPIO_ACTIVE_LOW>;
+		io-mux-select-gpios = <&tlmm 108 GPIO_ACTIVE_LOW>;
+		edp-aux-port-sel-gpios = <&tlmm 40 GPIO_ACTIVE_LOW>;
+		i2s-mux-select-gpios = <&tlmm 104 GPIO_ACTIVE_LOW>;
+
+		/* 读到 0 表示桥上电完成，所以按原始电平取（高有效） */
+		pwr-status-gpios = <&tlmm 72 GPIO_ACTIVE_HIGH>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				edp_mux_in: endpoint {
+					remote-endpoint = <&mdss_dsi0_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				edp_mux_out: endpoint {
+					remote-endpoint = <&panel_in_0>;
+				};
+			};
+		};
+	};
 };
 
 &i2c3 {
@@ -742,7 +802,13 @@
 };
 
 &i2c5 {
-	status = "okay";
+	/*
+	 * 原厂 FDT：qupv3_se5_i2c(994000) 是 status="disabled"，且它的默认引脚是 gpio12/13。
+	 * 本机 gpio12 是 eDP 桥的 mipi-to-edp-en，所以这条总线必须关掉，否则桥拿不到这根线。
+	 * 下面 4 个功放节点是从别的板子带过来的，本机原厂 FDT 里没有 cs35l45；
+	 * 音频属于 v0.2，等音频阶段再按原厂证据重建（技术债 #23）。
+	 */
+	status = "disabled";
 	clock-frequency = <400000>;
 
 	// SPK1-cs35l45
@@ -909,7 +975,7 @@
 			port@0 {
 				reg = <0>;
 				panel_in_0: endpoint {
-					remote-endpoint = <&mdss_dsi0_out>;
+					remote-endpoint = <&edp_mux_out>;
 				};
 			};
 
@@ -926,7 +992,7 @@
 
 &mdss_dsi0_out {
 	data-lanes = <0 1 2 3>;
-	remote-endpoint = <&panel_in_0>;
+	remote-endpoint = <&edp_mux_in>;
 };
 
 &mdss_dsi0_phy {
@@ -1299,7 +1365,11 @@
 };
 
 &tlmm {
-	gpio-reserved-ranges = <40 4>;
+	/*
+	 * 不写 gpio-reserved-ranges：本机原厂 FDT 里没有这一段（=全部引脚对 HLOS 可见）。
+	 * 之前从别的板子抄来的 <40 4> 正好把 eDP 桥的 edp-aux-port-sel(40) 与
+	 * edp-mux-pwr-en(42) 声明成保留，导致驱动拿不到（-EINVAL）。见 docs/step4-display.md。
+	 */
 
 	hall_sensor_default: hall-sensor-default-state {
 		pins = "gpio121";
@@ -1674,6 +1744,13 @@
 	vdds-supply = <&vreg_l5a_0p88>;
 	status = "okay";
 };
+
+/*
+ * PSA8331A：MIPI-DSI -> eDP 桥。玻璃挂在它后面，桥同时管面板大部分电源、
+ * AUX 端口选择和背光使能，所以只有 DSI 起来是点不亮的。
+ * GPIO 编号全部来自本机运行时 FDT（/soc/i2c@984000/eDP-MUX@66）。
+ * 电气低有效的那些线在厂商代码里是 value = on ? 0 : 1，这里用 GPIO_ACTIVE_LOW 表达。
+ */
 
 /* 面板背光：PM8150L LPG PWM（原厂 bl_ctrl_pwm，channel 0，1ms 周期） */
 / {

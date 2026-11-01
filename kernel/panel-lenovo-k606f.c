@@ -40,16 +40,28 @@ static inline struct k606f_panel *to_k606f(struct drm_panel *panel)
 /*
  * 2160x1350@60. Timings taken verbatim from the vendor DT node
  * qcom,mdss_dsi_dual_sim_video (per-link width 0x438=1080, height 0x546=1350):
- *   hfp 16 / hbp 12 / hpw 16, vbp 8 / vfp 8 / vpw 1, 24 bpp, 60 fps.
- * The DRM mode carries the FULL 2160-wide frame; msm splits it across the two
- * bonded links internally.
+ *   per-link hfp 16 / hbp 12 / hpw 16, vbp 8 / vfp 8 / vpw 1, 24 bpp, 60 fps.
+ *
+ * The DRM mode carries the FULL 2160-wide frame. msm's bonded-DSI split in
+ * dsi_timing_setup() divides the WHOLE horizontal timing (h_total, hsync,
+ * hdisplay) by 2 to get each link's value. So the horizontal porches must be
+ * DOUBLED here (hfp 32 / hpw 32 / hbp 24), otherwise each link ends up with
+ * hfp 8 / hpw 8 / hbp 6 instead of the vendor's 16 / 16 / 12.
+ *
+ * This is the same convention as panel-novatek-nt36532 (its mode carries
+ * hfp 200 / hpw 4 / hbp 92 for a 1800-wide bonded panel). Vertical timing is
+ * NOT split by msm, so it stays at the real values (8 / 1 / 8).
+ *
+ * clock = htotal(2248) * vtotal(1367) * 60 / 1000 = 184380 kHz. After msm
+ * halves it, each link gets 92.19 MHz pclk = 1124 * 1367 * 60, matching the
+ * vendor's per-link line of 1080 + 16 + 16 + 12 = 1124.
  */
 static const struct drm_display_mode k606f_mode = {
-	.clock = 180772,
+	.clock = (2160 + 32 + 32 + 24) * (1350 + 8 + 1 + 8) * 60 / 1000,
 	.hdisplay = 2160,
-	.hsync_start = 2160 + 16,
-	.hsync_end = 2160 + 16 + 16,
-	.htotal = 2160 + 16 + 16 + 12,
+	.hsync_start = 2160 + 32,
+	.hsync_end = 2160 + 32 + 32,
+	.htotal = 2160 + 32 + 32 + 24,
 	.vdisplay = 1350,
 	.vsync_start = 1350 + 8,
 	.vsync_end = 1350 + 8 + 1,
@@ -195,7 +207,16 @@ static int k606f_probe(struct mipi_dsi_device *dsi)
 
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_NO_EOT_PACKET;
+	/* ABL 的 PHY LANE_CTRL1 = 0x00（non-continuous clock）：clock lane 在
+	 * blanking 期间回到 LP-11，而不是一直保持 HS。B36 的寄存器 diff 显示
+	 * mainline 默认走 continuous（LANE_CTRL1=0x60），与 ABL 不一致。
+	 *
+	 * 不设 MIPI_DSI_MODE_NO_EOT_PACKET：B45 对齐发现 ABL 工作态 DSI86
+	 * EOT_PACKET_CTRL=1（TX_EOT_APPEND），面板设了该 flag 会让 msm 不插 EOT
+	 * 包，桥报 CHA/CHB INVALID_LENGTH_ERR（B42/B44 的 status=4）。
+	 */
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO |
+			  MIPI_DSI_CLOCK_NON_CONTINUOUS;
 	ret = devm_mipi_dsi_attach(dev, dsi);
 	if (ret) {
 		drm_panel_remove(&ctx->panel);
@@ -206,7 +227,7 @@ static int k606f_probe(struct mipi_dsi_device *dsi)
 		ctx->dsi[1]->lanes = 4;
 		ctx->dsi[1]->format = MIPI_DSI_FMT_RGB888;
 		ctx->dsi[1]->mode_flags = MIPI_DSI_MODE_VIDEO |
-					  MIPI_DSI_MODE_NO_EOT_PACKET;
+					  MIPI_DSI_CLOCK_NON_CONTINUOUS;
 		ret = devm_mipi_dsi_attach(dev, ctx->dsi[1]);
 		if (ret) {
 			drm_panel_remove(&ctx->panel);
