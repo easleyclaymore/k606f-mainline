@@ -2,8 +2,11 @@
 
 把主线 Linux 内核 + 桌面发行版移植到联想 YT-K606F（Yoga Tab 13 / 国行 YOGA Pad Pro）平板，与 Android 双系统共存。目标是在这台骁龙 870（SM8250-AC）设备上原生运行 Ubuntu + KDE Plasma。
 
-> **状态：进行中（第 4 步 · 显示接管）。** 内核已能通过 `fastboot boot` 启动并拿到 USB shell，
-> **但屏幕还没点亮**（DSI 控制器未使能，卡在 DRM bridge 链装配）。目前**不提供安装器**，也不写任何分区。
+> **状态：进行中（第 4 步 · 显示接管，深入调查中）。** 内核通过 `fastboot boot` 启动、USB shell 可用；
+> DSI 控制器已使能、eDP 桥（SN65DSI86）上电/配置/链路训练全部与 bootloader 工作态一致、DP 侧稳定输出——
+> **但屏幕仍黑**：桥报 CHA/CHB `INVALID_LENGTH_ERR`（收到的视频行长度与编程值不匹配），且每次引导随机一条链报错。
+> 已排除 EOT 缺失、跨 PLL 频漂、PHY timing、桥配置、DPU 拆分、pclk/byte 速率比等假设（见 `kernel/README.md`"调查状态"）。
+> 下一步：单链 bisect + panic 现场取证。目前**不提供安装器**，也不写任何分区。
 
 ## 设备
 
@@ -22,7 +25,7 @@
 |---|---|---|
 | 启动（`fastboot boot`） | ✅ 真机通过 | 内核 7.2.0 启动、UFS 枚举、USB NCM + shell |
 | 装到存储 / 双系统切换 | ⬜ 未开始 | 第 5 步 |
-| 显示 | ❌ 未点亮 | DPU card 与 DSI connector 已建立，但屏幕黑：DSI 控制器从未使能 |
+| 显示 | ❌ 未点亮（深入调查中） | DSI/桥/训练全通且与 bootloader 工作态对齐；黑屏=桥报 `INVALID_LENGTH_ERR`（随机坏链），见 `kernel/README.md`"调查状态" |
 | GPU | 🔶 部分 | Adreno 650 的 DRM 卡已注册，未做渲染验证 |
 | 触控 | ⬜ 待做 | 已定性为 GT738x（I2C，地址 `0x5d`） |
 | Wi-Fi / 蓝牙 | ⬜ 待做 | QCA6390 |
