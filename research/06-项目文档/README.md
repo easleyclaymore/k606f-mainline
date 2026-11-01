@@ -77,7 +77,7 @@ TOOLCHAIN=gcc SRC=$PWD/sources/pmos-sm8250 OUT=$PWD/out/kernel-msmmod \
 
 ## 上机流程（2026-10-31 修订）
 
-1. **确认设备在 Android 且电量够**：`adb devices` 看到 `HA1EQ9T9`，`dumpsys battery | grep level` ≥ 30%。
+1. **确认设备在 Android 且电量够**：`adb devices` 看到 `<SERIAL>`，`dumpsys battery | grep level` ≥ 30%。
 2. **进 fastboot**：`adb reboot bootloader`；`fastboot boot` 之前**必须先 `fastboot reboot-bootloader`**，
    否则报 `Load Error`（踩过多次）。
 3. **擦 dtbo**：`fastboot erase dtbo_a`（原厂 dtbo 依赖上百 vendor 符号，叠不上自有 DTB）。
@@ -122,7 +122,7 @@ TOOLCHAIN=gcc SRC=$PWD/sources/pmos-sm8250 OUT=$PWD/out/kernel-msmmod \
 
 | 项 | 值 |
 |---|---|
-| 设备 serial | `HA1EQ9T9`（fastboot / adb 都用它） |
+| 设备 serial | `<SERIAL>`（fastboot / adb 都用它） |
 | 活动槽 | `_a`（若 `slot-unbootable:a:yes`，先 `fastboot set_active a`） |
 | dtbo 备份 | `private/backups/2026-10-28/images/dtbo_a.img`，sha256 `ada89e08c881d0f10d3a2c420449d7373d7c22ad4ef28f7c69ca51f2080a33fd` |
 | dtbo_b 备份 | `private/backups/2026-10-28/images/dtbo_b.img`（探针会往这里写日志，事后可从此恢复） |

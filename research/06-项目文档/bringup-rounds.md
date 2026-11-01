@@ -92,6 +92,8 @@
 | **B72** | 12:28 | `5aa6e3d3` | flush 头加 `img=` 自标识（k606f.img= cmdline） | **读回确证为本轮**（inc 头 img=f9ea24c2 ✓）；dmesg 权威时间戳显示探针跑至内核 148.4s、DSI0 洪流持续——**修正 B70 的"公共路径"裁决：那些洪流疑似 ABL 残留流（B10 教训），而非我们的流水线**（绑定阶段打点 initialize_dsi/dsi_bind 全部缺席） | `private/logs/20261101-1300-B72/` |
 | **B73** | 12:34 | `da4a0f19` | dpu bind 路径打点（runtime_resume 入口/clk_bulk 前后） | **证据作废（标签 bug）**：打包时 img 标签取的是旧 boot-probe.img 的哈希（5aa6e3d3），无法区分本轮与 B72；读回未变。教训：**img 标签必须在 bringup 之后再取**，且 boot 后必须确认设备先离开 fastboot | `private/logs/20261101-1300-B73/` |
 | **B74** | 13:10 | 无镜像（Android 上直接 I2C） | **SN65DSI86 内置彩条测试**（GPT 外部评审建议）：Android 运行中写 0x2C 的 `0x3C=0x10`（COLOR_BAR_EN），`0x5A=0x0C`（VSTREAM 使能中） | **里程碑：屏幕出彩条！！**（用户照片 `colorbar-evidence.jpg`）——桥内置图案绕过 DSI 输入直出 eDP：**eDP 输出侧（桥/训练/mux/面板）全线正常，故障 100% 锁定 DSI 输入侧**。0x3C 已恢复 0x07。GPT 的建议完全正确 | （Android 在线操作，无探针日志；照片为证） |
+| **B75** | 12:51 | `cf406f0b` | 真单链（dts 删三个 dual 属性 + dsi1 禁用 + LANE_CTRL 对齐 ABL） | 探针跑满 5.5 分钟无崩溃；`dsi_bind bonded=0` `tiles=1` 全宽 2160（byte_clk=135.6MHz/lane 1084Mbps）；桥 EDP 训练成功（EDP_INIT rc=0）；**桥错误寄存器清后 f0-f7 全 0、DPCD=0x81 稳定同步、dsi_err 停在 10**——**协议层完全正常但屏幕纯黑**（人眼确认） | `private/logs/20261101-1300-B75/` |
+| **B76** | 13:35 | `b018c391` | 单链 + DSI 控制器 TPG（k606f.tpg=1，`msm_dsi_manager_tpg_enable()`） | **反而关背光**——比 B75 更退步。DSI 侧 TPG 干扰了桥训练或数据通路，已回退。改用 DPU INTF 层 TPG（B77 计划） | 无独立日志（B72 基础改） |
 ## 结论锚点
 
 - **B10 的重要修正**：Tux 是在 **msm 还没加载**时闪的 → 视频流是 **ABL 留下的 DSI** 在跑，
