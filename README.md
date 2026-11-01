@@ -41,6 +41,17 @@
 | [`docs/build.md`](docs/build.md) | 主机依赖、拿内核源码、应用改动、构建命令 |
 | [`docs/install.md`](docs/install.md) | 打启动镜像、`fastboot boot` 临时启动、风险与恢复 |
 | [`docs/return-to-android.md`](docs/return-to-android.md) | 回到 Android，以及刷过 `dtbo` 后必须做的事 |
+| [`docs/investigation/`](docs/investigation/README.md) | **调查记录**：显示点亮问题的全部技术过程（B1-B67 台账、已排除假设、寄存器对齐数据），未润色的内部工作文档镜像 |
+
+## 给做同类移植的人
+
+- 显示这条线的核心发现：eDP 桥（SN65DSI86）的 DSI RX 对**包帧结构敏感**（EOT 缺失
+  会报 `INVALID_LENGTH_ERR`）；排查手段是**与 bootloader 工作态做寄存器逐字节对照**
+  （I2C 工具在 `tools/`，上机自动化在 `tools/build-initramfs.sh` 的 blmode 机制）。
+- 踩过的坑：桥是两颗芯片（0x2C 真桥 + 0x33 mux，别写错地址）、模块必须与内核
+  vermagic 严格一致、builtin 驱动会把 USB 调试通道一起带走（技术债 #21）。
+- 我们没解决的问题（随机坏链、单链 probe 挂死）在调查文档里有完整的排除清单——
+  如果你在这台设备（或同拓扑设备）上推进，请先读它，别重复我们走过的死路。
 
 ## 目录结构
 
