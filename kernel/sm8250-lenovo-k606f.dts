@@ -78,6 +78,18 @@
 			no-map;
 		};
 
+		/* B61：panic/console ramoops——规范形态（reg 在节点上，驱动
+		 * ramoops_parse_dt 要求 IORESOURCE_MEM，memory-region 方式不带资源会
+		 * 直接 -EINVAL）。不用 no-map：驱动要 memremap 这段内存 */
+		ramoops@1f0000000 {
+			compatible = "ramoops";
+			reg = <0x1 0xf0000000 0x0 0x100000>;
+			record-size = <0x20000>;
+			console-size = <0x80000>;
+			pmsg-size = <0x20000>;
+			ecc-size = <16>;
+		};
+
 		spss_mem: memory@8C600000 {
 			reg = <0x0 0x8C600000 0x0 0x100000>;
 			no-map;
@@ -953,9 +965,8 @@
 &mdss_dsi0 {
 	vdda-supply = <&vreg_l9a_1p2>;
 	refgen-supply = <&refgen>;
-	qcom,dual-dsi-mode;
-	qcom,sync-dual-dsi;
-	qcom,master-dsi;
+	/* B75：单链 bisect——三个 dual 属性删除（B56 的这处编辑曾被脚本回滚丢失，
+	 * B56-B70 的"单链"轮实际都是 bonded 配置+dsi1 禁用的矛盾态） */
 	status = "okay";
 
 	display_panel: panel@0 {
@@ -976,13 +987,6 @@
 				reg = <0>;
 				panel_in_0: endpoint {
 					remote-endpoint = <&edp_mux_out>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-				panel_in_1: endpoint {
-					remote-endpoint = <&mdss_dsi1_out>;
 				};
 			};
 		};
@@ -1723,26 +1727,14 @@
 	stdout-path = "serial0:115200n8";
 };
 
-/* K606F: 第二条 DSI 链路（split 模式） */
+/* K606F：B56 单链 bisect——dsi1 整链禁用（2160 宽全走 dsi0，桥配单通道） */
 &mdss_dsi1 {
-	vdda-supply = <&vreg_l9a_1p2>;
-	refgen-supply = <&refgen>;
-	qcom,dual-dsi-mode;
-	qcom,sync-dual-dsi;
-	/* DSI1 是 slave，时钟必须用 DSI0 的 PHY PLL（否则 dsi1 会锁自己的 PLL，报 DSI PLL lock failed） */
-	assigned-clock-parents = <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
-				 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>;
-	status = "okay";
-};
-
-&mdss_dsi1_out {
-	data-lanes = <0 1 2 3>;
-	remote-endpoint = <&panel_in_1>;
+	status = "disabled";
 };
 
 &mdss_dsi1_phy {
 	vdds-supply = <&vreg_l5a_0p88>;
-	status = "okay";
+	status = "disabled";
 };
 
 /*

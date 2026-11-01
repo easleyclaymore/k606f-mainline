@@ -39,29 +39,19 @@ static inline struct k606f_panel *to_k606f(struct drm_panel *panel)
 
 /*
  * 2160x1350@60. Timings taken verbatim from the vendor DT node
- * qcom,mdss_dsi_dual_sim_video (per-link width 0x438=1080, height 0x546=1350):
- *   per-link hfp 16 / hbp 12 / hpw 16, vbp 8 / vfp 8 / vpw 1, 24 bpp, 60 fps.
+ * qcom,mdss_dsi_dual_sim_video (per-line hfp 16 / hbp 12 / hpw 16,
+ * vbp 8 / vfp 8 / vpw 1, 24 bpp, 60 fps).
  *
- * The DRM mode carries the FULL 2160-wide frame. msm's bonded-DSI split in
- * dsi_timing_setup() divides the WHOLE horizontal timing (h_total, hsync,
- * hdisplay) by 2 to get each link's value. So the horizontal porches must be
- * DOUBLED here (hfp 32 / hpw 32 / hbp 24), otherwise each link ends up with
- * hfp 8 / hpw 8 / hbp 6 instead of the vendor's 16 / 16 / 12.
- *
- * This is the same convention as panel-novatek-nt36532 (its mode carries
- * hfp 200 / hpw 4 / hbp 92 for a 1800-wide bonded panel). Vertical timing is
- * NOT split by msm, so it stays at the real values (8 / 1 / 8).
- *
- * clock = htotal(2248) * vtotal(1367) * 60 / 1000 = 184380 kHz. After msm
- * halves it, each link gets 92.19 MHz pclk = 1124 * 1367 * 60, matching the
- * vendor's per-link line of 1080 + 16 + 16 + 12 = 1124.
+ * B56 单链 bisect：2160 宽全走 dsi0（非 bonded），porch 用厂商的每行真实值
+ * （16/16/12），htotal = 2204。clock = 2204*1367*60/1000 = 180804 kHz；
+ * byte_clk = pclk*3/4 = 135.6 MHz，lane 位率 1084 Mbps（<1.5G 规格内）。
  */
 static const struct drm_display_mode k606f_mode = {
-	.clock = (2160 + 32 + 32 + 24) * (1350 + 8 + 1 + 8) * 60 / 1000,
+	.clock = (2160 + 16 + 16 + 12) * (1350 + 8 + 1 + 8) * 60 / 1000,
 	.hdisplay = 2160,
-	.hsync_start = 2160 + 32,
-	.hsync_end = 2160 + 32 + 32,
-	.htotal = 2160 + 32 + 32 + 24,
+	.hsync_start = 2160 + 16,
+	.hsync_end = 2160 + 16 + 16,
+	.htotal = 2160 + 16 + 16 + 12,
 	.vdisplay = 1350,
 	.vsync_start = 1350 + 8,
 	.vsync_end = 1350 + 8 + 1,
@@ -94,13 +84,18 @@ static int k606f_prepare(struct drm_panel *panel)
 	struct k606f_panel *ctx = to_k606f(panel);
 	int ret;
 
+	pr_info("[K606F] panel prepare 开始\n");
+
 	if (ctx->supply) {
+		pr_info("[K606F] prepare: vddio enable 前\n");
 		ret = regulator_enable(ctx->supply);
+		pr_info("[K606F] prepare: vddio ret=%d\n", ret);
 		if (ret)
 			return ret;
 	}
 
 	if (ctx->reset_gpio) {
+		pr_info("[K606F] prepare: reset 序列前\n");
 		/* reset 低有效：deassert→assert→deassert（原厂 reset-sequence 高→低→高） */
 		gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 		msleep(10);

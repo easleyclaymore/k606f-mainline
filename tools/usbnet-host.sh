@@ -3,7 +3,12 @@
 set -uo pipefail
 HOST_IP=${HOST_IP:-172.16.42.2}
 DEV_IP=${DEV_IP:-172.16.42.1}
-PW=${PW:-qq}
+# sudo 密码通过环境变量传入，仓库里不内置任何凭据
+PW=${PW:-}
+if [ -z "$PW" ]; then
+  echo "请用 PW=<sudo密码> $0 运行（密码只经环境变量传入，不写进脚本）" >&2
+  exit 1
+fi
 
 find_if() {
   ip -o link | grep -oE "(enp0s[0-9a-zA-Z]+u[0-9]+|usb[0-9]+)" | head -n1

@@ -2,11 +2,13 @@
 
 把主线 Linux 内核 + 桌面发行版移植到联想 YT-K606F（Yoga Tab 13 / 国行 YOGA Pad Pro）平板，与 Android 双系统共存。目标是在这台骁龙 870（SM8250-AC）设备上原生运行 Ubuntu + KDE Plasma。
 
-> **状态：进行中（第 4 步 · 显示接管，深入调查中）。** 内核通过 `fastboot boot` 启动、USB shell 可用；
-> DSI 控制器已使能、eDP 桥（SN65DSI86）上电/配置/链路训练全部与 bootloader 工作态一致、DP 侧稳定输出——
-> **但屏幕仍黑**：桥报 CHA/CHB `INVALID_LENGTH_ERR`（收到的视频行长度与编程值不匹配），且每次引导随机一条链报错。
-> 已排除 EOT 缺失、跨 PLL 频漂、PHY timing、桥配置、DPU 拆分、pclk/byte 速率比等假设（见 `kernel/README.md`"调查状态"）。
-> 下一步：单链 bisect + panic 现场取证。目前**不提供安装器**，也不写任何分区。
+> **状态：进行中（第 4 步 · 显示接管，接近收口）。** 内核通过 `fastboot boot` 启动、USB shell 可用。
+> **「eDP 输出侧全线正常」已被证明**：给桥写 `0x3C=0x10` 让它输出内置彩条，屏幕直接出图（B74 里程碑，有照片）；
+> DPU INTF 输入端也确认有像素流（MISR 签名逐帧变化，B77）。
+> **当前唯一缺口**：DSI 实际只按 **1080/行（半宽）** 发送，而面板是 2160——B78 用"运行中重写桥寄存器"反证了
+> 这点（写 2160 后桥立刻报 `INVALID_LENGTH_ERR`）。已排除 EOT 缺失、跨 PLL 频漂、PHY timing、桥配置、
+> DPU 拆分、pclk/byte 速率比、桥通道模式写入等假设（见 `docs/investigation/`）。
+> 下一步：定位 `adjusted_mode` 被切半的那一层（DRM tile / DPU split / panel `get_modes`）。目前**不提供安装器**，也不写任何分区。
 
 ## 设备
 
@@ -25,7 +27,7 @@
 |---|---|---|
 | 启动（`fastboot boot`） | ✅ 真机通过 | 内核 7.2.0 启动、UFS 枚举、USB NCM + shell |
 | 装到存储 / 双系统切换 | ⬜ 未开始 | 第 5 步 |
-| 显示 | ❌ 未点亮（深入调查中） | DSI/桥/训练全通且与 bootloader 工作态对齐；黑屏=桥报 `INVALID_LENGTH_ERR`（随机坏链），见 `kernel/README.md`"调查状态" |
+| 显示 | ❌ 未点亮（接近收口） | **eDP 输出侧已证明正常**（桥内置彩条出图，B74）；DPU INTF 有像素流（MISR，B77）；**唯一缺口 = DSI 只发 1080 半宽而面板 2160**（B78 反证）。见 `docs/investigation/` |
 | GPU | 🔶 部分 | Adreno 650 的 DRM 卡已注册，未做渲染验证 |
 | 触控 | ⬜ 待做 | 已定性为 GT738x（I2C，地址 `0x5d`） |
 | Wi-Fi / 蓝牙 | ⬜ 待做 | QCA6390 |
@@ -41,7 +43,7 @@
 | [`docs/build.md`](docs/build.md) | 主机依赖、拿内核源码、应用改动、构建命令 |
 | [`docs/install.md`](docs/install.md) | 打启动镜像、`fastboot boot` 临时启动、风险与恢复 |
 | [`docs/return-to-android.md`](docs/return-to-android.md) | 回到 Android，以及刷过 `dtbo` 后必须做的事 |
-| [`docs/investigation/`](docs/investigation/README.md) | **调查记录**：显示点亮问题的全部技术过程（B1-B67 台账、已排除假设、寄存器对齐数据），未润色的内部工作文档镜像 |
+| [`docs/investigation/`](docs/investigation/README.md) | **调查记录**：显示点亮问题的全部技术过程（B1-B78 台账、已排除假设、寄存器对齐数据），未润色的内部工作文档镜像 |
 
 ## 给做同类移植的人
 

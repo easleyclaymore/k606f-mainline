@@ -92,9 +92,10 @@ static const struct psa8331_edp_reg psa8331_edp_init[] = {
 	{ 0x0a, 0x02, 2 },
 	{ 0xe0, 0x01, 2 },
 	{ 0x5c, 0x01, 2 },
-	{ 0x10, 0x80, 2 },
-	{ 0x12, 0x36, 2 },
-	{ 0x13, 0x36, 2 },
+	/* B56 单链：0x10 = 单通道 A（bits[6:5]=01）+ CHA 4 lane；CHA=2160、CHB 关 */
+	{ 0x10, 0x20, 2 },
+	{ 0x12, 0x6c, 2 },	/* clock lane 542 MHz：8+floor((542-40)/5)=0x6c */
+	{ 0x13, 0x00, 2 },
 	{ 0x94, 0x80, 2 },
 	{ 0x0d, 0x01, 2 },
 	/* DP TX PHY 配置（lane 极性/摆幅/预加重）—— 厂商在 0x0d 之后、0x5A 之前写，
@@ -130,10 +131,10 @@ static const struct psa8331_edp_reg psa8331_edp_init[] = {
 	{ 0xc3, 0xff, 2 },
 	{ 0x95, 0x00, 2 },
 	{ 0x96, 0x09, 2 },
-	{ 0x20, 0x38, 2 },
-	{ 0x21, 0x04, 2 },
-	{ 0x22, 0x38, 2 },
-	{ 0x23, 0x04, 2 },
+	{ 0x20, 0x70, 2 },	/* CHA_ACTIVE_LINE_LENGTH = 2160 (单链全宽) */
+	{ 0x21, 0x08, 2 },
+	{ 0x22, 0x00, 2 },	/* CHB 不用 */
+	{ 0x23, 0x00, 2 },
 	{ 0x24, 0x46, 2 },
 	{ 0x25, 0x05, 2 },
 	{ 0x2c, 0x10, 2 },
@@ -573,6 +574,7 @@ static void psa8331_bridge_pre_enable(struct drm_bridge *bridge)
 	struct psa8331 *ctx = to_psa8331(bridge);
 	int stage, ret;
 
+	pr_info("[K606F] psa8331 pre_enable 开始 powered=%d\n", ctx->powered);
 	if (ctx->powered)
 		return;
 
@@ -672,9 +674,12 @@ static void psa8331_bridge_enable(struct drm_bridge *bridge)
 	 * first, then dsi_display_dsi86_init().
 	 */
 	if (!ctx->edp_trained) {
+		pr_info("[K606F] psa8331 pre_enable: EDP_MUX+INIT+训练开始\n");
 		ret = psa8331_power_stage(ctx, PSA8331_STAGE_EDP_MUX);
+		pr_info("[K606F] psa8331 pre_enable: EDP_MUX rc=%d\n", ret);
 		if (!ret)
 			ret = psa8331_power_stage(ctx, PSA8331_STAGE_EDP_INIT);
+		pr_info("[K606F] psa8331 pre_enable: EDP_INIT rc=%d\n", ret);
 		if (!ret)
 			ctx->edp_trained = true;
 	}

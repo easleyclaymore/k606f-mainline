@@ -35,11 +35,11 @@
 
 **当前阻塞**：无。设备在 Android，adb 在线，dtbo_a 校验一致。
 
-**唯一下一步**：定位单链 display probe 的**静默挂死**（B65 定性：dmesg 止于 36.73s、
-零报错、dsi_bind 未达；软锁死 panic 被持锁控制台吞掉）。三选一：hung_task/softlockup
-panic 化拿带栈 dump；ramoops 搬 ABL 不踩的地址；静态排查单链 probe 路径
-（技术债 #11 aux_bridge 嫌疑）。取证设施已建成自检通过（增量 flush 0.3s/ramoops
-管线/pstore 双 boot），详见 `docs/step4-display.md` B61-B65 与 `docs/bringup-rounds.md`。
+**唯一下一步**：**DPU INTF 内置 TPG 实验**——绕过 SSPP→LM 像素路径，让 INTF 自己
+生成图案。出图=问题在 SSPP/LM 像素路径；不出图=问题在 INTF→DSI 通路。
+背景：桥内置彩条已出图（eDP 输出侧 ✅）、真单链桥 RX 零错误（协议 ✅）、
+但屏幕黑（像素数据 ❌）——只剩 DPU 像素数据通路。
+详见 `docs/step4-display.md` 当前结论摘要与 `docs/bringup-rounds.md`。
 
 ## 目录地图
 
